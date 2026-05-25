@@ -1,0 +1,143 @@
+import { useSession } from "../lib/auth-client";
+
+const Home = () => {
+  const { data: session, isPending } = useSession();
+
+  // Placeholder data for problems
+  const problems = [
+    { id: 1, title: "Two Sum", tags: ["Array", "Hash Table"], rating: 800 },
+    { id: 2, title: "Longest Substring Without Repeating Characters", tags: ["String", "Sliding Window"], rating: 1200 },
+    { id: 3, title: "Median of Two Sorted Arrays", tags: ["Array", "Binary Search"], rating: 2100 },
+    { id: 4, title: "Longest Palindromic Substring", tags: ["String", "DP"], rating: 1400 },
+    { id: 5, title: "Reverse Integer", tags: ["Math"], rating: 900 },
+    { id: 6, title: "String to Integer (atoi)", tags: ["String"], rating: 1100 },
+    { id: 7, title: "Palindrome Number", tags: ["Math"], rating: 800 },
+    { id: 8, title: "Regular Expression Matching", tags: ["String", "DP", "Recursion"], rating: 2300 },
+    { id: 9, title: "Container With Most Water", tags: ["Array", "Two Pointers"], rating: 1300 },
+    { id: 10, title: "Integer to Roman", tags: ["Math", "String"], rating: 1000 },
+  ];
+
+  // Placeholder data for contests
+  const contests = [
+    { id: 1, title: "CodingLab Round #102 (Div. 2)", host: "Admin", endsAt: "May 25, 2026" },
+    { id: 2, title: "Educational Round #15", host: "ProblemSetter_X", endsAt: "June 02, 2026" },
+    { id: 3, title: "Algorithm Masters 2026", host: "CodingClub", endsAt: "June 10, 2026" },
+  ];
+
+  if (isPending) return (
+    <div className="flex justify-center items-center min-h-[60vh]">
+      <span className="loading loading-ring loading-lg text-black"></span>
+    </div>
+  );
+
+  return (
+    <div className="max-w-[1400px] mx-auto py-8 px-4 lg:px-8">
+      {/* Hero Section */}
+      <div className="text-center space-y-4 mb-12">
+        <h1 className="text-5xl lg:text-7xl font-black tracking-tight uppercase font-spartan text-black">
+          Welcome to <span className="bg-emerald-400 px-2 border-2 border-black shadow-[4px_4px_0px_0px_black]">CodingLab</span>
+        </h1>
+        <p className="text-lg lg:text-xl font-bold max-w-2xl mx-auto italic text-slate-700">
+          Empowering university students to conquer the world of algorithms and data structures.
+        </p>
+        {!session && (
+          <div className="pt-4">
+            <a href="/auth" className="btn bg-slate-900 text-white rounded-none btn-lg px-10 font-black uppercase neo-brutal neo-brutal-hover border-none">
+              Get Started Now
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Main Layout: 60/40 Split */}
+      <div className="flex flex-col lg:flex-row gap-8">
+        
+        {/* Left Side: Problems (60%) */}
+        <div className="lg:w-[60%] space-y-6">
+          <div className="bg-white neo-brutal rounded-none overflow-hidden">
+            <div className="bg-sky-400 p-4 border-b-4 border-black">
+              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight">Top Problems</h2>
+            </div>
+            <div className="divide-y-2 divide-black">
+              {problems.map((prob) => (
+                <div key={prob.id} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
+                  <div className="space-y-1">
+                    <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic">{prob.title}</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {prob.tags.map(tag => (
+                        <span key={tag} className="badge rounded-none border-2 border-black font-black text-[10px] uppercase bg-white text-black">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-black text-xl bg-white border-2 border-black px-2 shadow-[2px_2px_0px_0px_black]">
+                      {prob.rating}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 text-center border-t-4 border-black bg-slate-50">
+              <button className="font-black uppercase text-black hover:text-sky-600 transition-colors flex items-center justify-center w-full gap-2 group">
+                See More Problems <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Contests & Stats (40%) */}
+        <div className="lg:w-[40%] space-y-8">
+          
+          {/* Live Contests Card */}
+          <div className="bg-white neo-brutal rounded-none overflow-hidden">
+            <div className="bg-emerald-400 p-4 border-b-4 border-black">
+              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight">Live Contests</h2>
+            </div>
+            <div className="divide-y-2 divide-black">
+              {contests.map((contest) => (
+                <div key={contest.id} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
+                  <div className="space-y-1">
+                    <h3 className="font-black text-md leading-tight uppercase italic">{contest.title}</h3>
+                    <p className="text-xs font-black opacity-60 uppercase">By {contest.host}</p>
+                  </div>
+                  <div className="text-right min-w-[100px]">
+                    <span className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 shadow-[2px_2px_0px_0px_#10b981]">Ends: {contest.endsAt}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 text-center border-t-4 border-black bg-slate-900">
+              <button className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full">See More Contests</button>
+            </div>
+          </div>
+
+          {/* Growth Stats Card */}
+          <div className="bg-white neo-brutal rounded-none overflow-hidden">
+            <div className="bg-amber-400 p-4 border-b-4 border-black">
+              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight text-center">Growth Stats</h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <span className="font-black uppercase italic text-lg tracking-tighter">Problems Solved</span>
+                <span className="text-4xl font-black bg-white px-3 border-2 border-black shadow-[4px_4px_0px_0px_black]">0</span>
+              </div>
+              <div className="w-full bg-slate-200 h-8 border-4 border-black relative">
+                <div className="bg-emerald-400 h-full w-[0%] transition-all duration-500"></div>
+                <div className="absolute inset-0 flex items-center justify-center font-black text-xs uppercase mix-blend-difference text-white">Progress: 0%</div>
+              </div>
+              <div className="flex justify-between items-center text-sm font-black uppercase italic opacity-80">
+                 <span className="bg-slate-900 text-white px-2">Rank: Unrated</span>
+                 <span className="bg-slate-900 text-white px-2">Rating: 0</span>
+              </div>
+              <button className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</button>
+          </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default Home;

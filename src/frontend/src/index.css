@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@theme {
+  --font-spartan: "League Spartan", sans-serif;
+  --color-brand: #000000;
+  --color-highlight: var(--color-emerald-400);
+}
+
+:root {
+  --daisy-theme-default: acid;
+}
+
+/* Force light mode background if needed */
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+@utility neo-brutal {
+  border: 3px solid black;
+  box-shadow: 6px 6px 0px 0px black;
+  transition: all 0.2s ease;
+}
+
+@utility neo-brutal-hover {
+  @apply hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0px_0px_black];
+}
+
+@utility font-spartan {
+  font-family: "League Spartan", sans-serif;
+}
