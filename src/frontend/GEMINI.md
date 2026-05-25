@@ -29,3 +29,6 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **SRP Enforcement:** Components like Navbars, Footers, and Pages must live in their own dedicated files.
 - **Modularity:** Abstract repeated UI patterns (like problem rows or contest cards) into modular components.
 - **DaisyUI usage:** Prefer using DaisyUI classes over custom CSS where possible to maintain theme consistency.
+
+## other conventions
+- while rewriting a file if most of the code is the same as previous one keep them only change the necessary ones. If something related to design, text is changed and if anything is removed keep the new version

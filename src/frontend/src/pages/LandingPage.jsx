@@ -31,6 +31,12 @@ const LandingPage = () => {
     </div>
   );
 
+  // Helper to determine redirect path
+  const getRedirectPath = (targetPath) => {
+    if (!session) return "/auth";
+    return targetPath || "#";
+  };
+
   return (
     <div className="max-w-[1400px] mx-auto py-8 px-4 lg:px-8">
       {/* Hero Section */}
@@ -61,7 +67,7 @@ const LandingPage = () => {
             </div>
             <div className="divide-y-2 divide-black">
               {problems.map((prob) => (
-                <Link key={prob.id} to="/auth" className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
+                <Link key={prob.id} to={getRedirectPath()} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
                   <div className="space-y-1">
                     <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic">{prob.title}</h3>
                     <div className="flex flex-wrap gap-2">
@@ -79,7 +85,10 @@ const LandingPage = () => {
               ))}
             </div>
             <div className="p-4 text-center border-t-4 border-black bg-slate-50">
-              <Link to="/auth" className="font-black uppercase text-black hover:text-sky-600 transition-colors flex items-center justify-center w-full gap-2 group">
+              <Link 
+                to={getRedirectPath("/problems")} 
+                className="font-black uppercase text-black hover:text-sky-600 transition-colors flex items-center justify-center w-full gap-2 group"
+              >
                 See More Problems <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
               </Link>
             </div>
@@ -96,7 +105,7 @@ const LandingPage = () => {
             </div>
             <div className="divide-y-2 divide-black">
               {contests.map((contest) => (
-                <Link key={contest.id} to="/auth" className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
+                <Link key={contest.id} to={getRedirectPath()} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
                   <div className="space-y-1">
                     <h3 className="font-black text-md leading-tight uppercase italic">{contest.title}</h3>
                     <p className="text-xs font-black opacity-60 uppercase">By {contest.host}</p>
@@ -108,7 +117,7 @@ const LandingPage = () => {
               ))}
             </div>
             <div className="p-4 text-center border-t-4 border-black bg-slate-900">
-              <Link to="/auth" className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full flex justify-center">See More Contests</Link>
+              <Link to={getRedirectPath()} className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full flex justify-center">See More Contests</Link>
             </div>
           </div>
 
@@ -130,7 +139,7 @@ const LandingPage = () => {
                  <span className="bg-slate-900 text-white px-2">Rank: Unrated</span>
                  <span className="bg-slate-900 text-white px-2">Rating: 0</span>
               </div>
-              <Link to="/auth" className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</Link>
+              <Link to={getRedirectPath()} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</Link>
             </div>
           </div>
 
