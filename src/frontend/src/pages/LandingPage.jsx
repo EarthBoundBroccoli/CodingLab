@@ -1,6 +1,7 @@
+import { Link } from "react-router-dom";
 import { useSession } from "../lib/auth-client";
 
-const Home = () => {
+const LandingPage = () => {
   const { data: session, isPending } = useSession();
 
   // Placeholder data for problems
@@ -34,17 +35,17 @@ const Home = () => {
     <div className="max-w-[1400px] mx-auto py-8 px-4 lg:px-8">
       {/* Hero Section */}
       <div className="text-center space-y-4 mb-12">
-        <h1 className="text-5xl lg:text-7xl font-black tracking-tight uppercase font-spartan text-black">
-          Welcome to <span className="bg-emerald-400 px-2 border-2 border-black shadow-[4px_4px_0px_0px_black]">CodingLab</span>
+        <h1 className="text-5xl lg:text-7xl font-black tracking-tight font-spartan text-black uppercase">
+          Welcome to <span className="bg-emerald-400 px-2 border-2 border-black shadow-[4px_4px_0px_0px_black] normal-case">CodingLab</span>
         </h1>
         <p className="text-lg lg:text-xl font-bold max-w-2xl mx-auto italic text-slate-700">
           Empowering university students to conquer the world of algorithms and data structures.
         </p>
         {!session && (
           <div className="pt-4">
-            <a href="/auth" className="btn bg-slate-900 text-white rounded-none btn-lg px-10 font-black uppercase neo-brutal neo-brutal-hover border-none">
+            <Link to="/auth" className="btn bg-slate-900 text-white rounded-none btn-lg px-10 font-black uppercase neo-brutal neo-brutal-hover border-none">
               Get Started Now
-            </a>
+            </Link>
           </div>
         )}
       </div>
@@ -60,7 +61,7 @@ const Home = () => {
             </div>
             <div className="divide-y-2 divide-black">
               {problems.map((prob) => (
-                <div key={prob.id} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
+                <Link key={prob.id} to="/auth" className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
                   <div className="space-y-1">
                     <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic">{prob.title}</h3>
                     <div className="flex flex-wrap gap-2">
@@ -74,13 +75,13 @@ const Home = () => {
                       {prob.rating}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             <div className="p-4 text-center border-t-4 border-black bg-slate-50">
-              <button className="font-black uppercase text-black hover:text-sky-600 transition-colors flex items-center justify-center w-full gap-2 group">
+              <Link to="/auth" className="font-black uppercase text-black hover:text-sky-600 transition-colors flex items-center justify-center w-full gap-2 group">
                 See More Problems <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -95,7 +96,7 @@ const Home = () => {
             </div>
             <div className="divide-y-2 divide-black">
               {contests.map((contest) => (
-                <div key={contest.id} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
+                <Link key={contest.id} to="/auth" className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
                   <div className="space-y-1">
                     <h3 className="font-black text-md leading-tight uppercase italic">{contest.title}</h3>
                     <p className="text-xs font-black opacity-60 uppercase">By {contest.host}</p>
@@ -103,11 +104,11 @@ const Home = () => {
                   <div className="text-right min-w-[100px]">
                     <span className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 shadow-[2px_2px_0px_0px_#10b981]">Ends: {contest.endsAt}</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             <div className="p-4 text-center border-t-4 border-black bg-slate-900">
-              <button className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full">See More Contests</button>
+              <Link to="/auth" className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full flex justify-center">See More Contests</Link>
             </div>
           </div>
 
@@ -129,8 +130,8 @@ const Home = () => {
                  <span className="bg-slate-900 text-white px-2">Rank: Unrated</span>
                  <span className="bg-slate-900 text-white px-2">Rating: 0</span>
               </div>
-              <button className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</button>
-          </div>
+              <Link to="/auth" className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</Link>
+            </div>
           </div>
 
         </div>
@@ -140,4 +141,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default LandingPage;

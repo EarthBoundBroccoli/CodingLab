@@ -32,3 +32,7 @@ CodingLab is a comprehensive web-based coding practice platform for university s
 
 ### Implementation Note: Simplification
 The project uses the **JDoodle API** for code execution to simplify the judging logic, replacing Judge0/Docker.
+
+
+### Extra instructions
+- Do not change or revert any text or design if it is done by the coder unless asked specifically to change. For example: Title font or color may be changed manually, it shall not be changed unless asked so.

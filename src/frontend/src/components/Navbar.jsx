@@ -1,20 +1,56 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useSession, signOut } from "../lib/auth-client";
 
 const Navbar = () => {
-  const { data: session, isPending } = useSession();
+  const { data: session } = useSession();
+  const location = useLocation();
+
+  const navLinks = [
+    { name: "Explore", path: "/" },
+    { name: "About", path: "/about" },
+    { name: "Support", path: "/support" },
+  ];
+
+  const isActive = (path) => location.pathname === path;
 
   return (
     <div className="navbar bg-white px-4 lg:px-8 border-b-4 border-black">
-      <div className="flex-1">
+      {/* Brand */}
+      <div className="flex-1 gap-8 flex items-center">
         <Link to="/" className="text-4xl font-black text-black tracking-tighter font-spartan hover:text-emerald-400 transition-all duration-300 active:scale-95">
           CodingLab
         </Link>
+
+        {/* Navigation Links */}
+        <div className="hidden md:flex gap-6 items-center">
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              to={link.path}
+              className={`text-xl font-bold text-black hover:text-emerald-400 transition-colors ${
+                isActive(link.path) ? "underline decoration-4 underline-offset-8" : ""
+              }`}
+            >
+              {link.name}
+            </Link>
+          ))}
+          
+          {!session && (
+            <Link
+              to="/auth"
+              className={`text-xl font-bold text-black hover:text-emerald-400 transition-colors ${
+                isActive("/auth") ? "underline decoration-4 underline-offset-8" : ""
+              }`}
+            >
+              Login
+            </Link>
+          )}
+        </div>
       </div>
-      <div className="flex-none gap-2">
-        {isPending ? (
-          <span className="loading loading-spinner loading-sm text-black"></span>
-        ) : session ? (
+
+      {/* Right Side: Auth/Profile & Logo Placeholder */}
+      <div className="flex-none gap-8 flex items-center">
+        {session ? (
           <div className="dropdown dropdown-end">
             <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar border-2 border-black">
               <div className="w-10 rounded-full bg-emerald-400 text-black flex items-center justify-center">
@@ -47,9 +83,12 @@ const Navbar = () => {
               </li>
             </ul>
           </div>
-        ) : (
-          <Link to="/auth" className="btn bg-slate-900 text-white border-2 border-black hover:bg-emerald-400 hover:text-black rounded-none px-6 font-black uppercase">Login</Link>
-        )}
+        ) : null}
+
+        {/* Logo Placeholder */}
+        <div className="bg-slate-200 border-2 border-black p-2 font-black text-xs uppercase text-center w-24">
+          Logo<br/>placeholder
+        </div>
       </div>
     </div>
   );
