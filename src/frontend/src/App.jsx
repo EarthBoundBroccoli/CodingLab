@@ -5,6 +5,9 @@ import LandingPage from "./pages/LandingPage";
 import About from "./pages/About";
 import Support from "./pages/Support";
 import Problems from "./pages/Problems";
+import Contests from "./pages/Contests";
+import PreviousContests from "./pages/PreviousContests";
+import Growth from "./pages/Growth";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import Navbar from "./components/Navbar";
@@ -54,6 +57,33 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Problems />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/contests" 
+                  element={
+                    <ProtectedRoute>
+                      <Contests />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/contests/previous" 
+                  element={
+                    <ProtectedRoute>
+                      <PreviousContests />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/growth" 
+                  element={
+                    <ProtectedRoute>
+                      <Growth />
                     </ProtectedRoute>
                   } 
                 />

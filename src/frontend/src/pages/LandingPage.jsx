@@ -1,21 +1,22 @@
 import { Link } from "react-router-dom";
 import { useSession } from "../lib/auth-client";
+import { Target, Code2, Award, Zap } from "lucide-react";
 
 const LandingPage = () => {
   const { data: session, isPending } = useSession();
 
   // Placeholder data for problems
   const problems = [
-    { id: 1, title: "Two Sum", tags: ["Array", "Hash Table"], rating: 800 },
-    { id: 2, title: "Longest Substring Without Repeating Characters", tags: ["String", "Sliding Window"], rating: 1200 },
-    { id: 3, title: "Median of Two Sorted Arrays", tags: ["Array", "Binary Search"], rating: 2100 },
-    { id: 4, title: "Longest Palindromic Substring", tags: ["String", "DP"], rating: 1400 },
-    { id: 5, title: "Reverse Integer", tags: ["Math"], rating: 900 },
-    { id: 6, title: "String to Integer (atoi)", tags: ["String"], rating: 1100 },
-    { id: 7, title: "Palindrome Number", tags: ["Math"], rating: 800 },
-    { id: 8, title: "Regular Expression Matching", tags: ["String", "DP", "Recursion"], rating: 2300 },
-    { id: 9, title: "Container With Most Water", tags: ["Array", "Two Pointers"], rating: 1300 },
-    { id: 10, title: "Integer to Roman", tags: ["Math", "String"], rating: 1000 },
+    { id: 1, title: "Two Sum", tags: ["Array", "Hash Table"], difficulty: "easy" },
+    { id: 2, title: "Longest Substring Without Repeating Characters", tags: ["String", "Sliding Window"], difficulty: "normal" },
+    { id: 3, title: "Median of Two Sorted Arrays", tags: ["Array", "Binary Search"], difficulty: "hard" },
+    { id: 4, title: "Longest Palindromic Substring", tags: ["String", "DP"], difficulty: "normal" },
+    { id: 5, title: "Reverse Integer", tags: ["Math"], difficulty: "easy" },
+    { id: 6, title: "String to Integer (atoi)", tags: ["String"], difficulty: "normal" },
+    { id: 7, title: "Palindrome Number", tags: ["Math"], difficulty: "easy" },
+    { id: 8, title: "Regular Expression Matching", tags: ["String", "DP", "Recursion"], difficulty: "hard" },
+    { id: 9, title: "Container With Most Water", tags: ["Array", "Two Pointers"], difficulty: "normal" },
+    { id: 10, title: "Integer to Roman", tags: ["Math", "String"], difficulty: "easy" },
   ];
 
   // Placeholder data for contests
@@ -24,6 +25,14 @@ const LandingPage = () => {
     { id: 2, title: "Educational Round #15", host: "ProblemSetter_X", endsAt: "June 02, 2026" },
     { id: 3, title: "Algorithm Masters 2026", host: "CodingClub", endsAt: "June 10, 2026" },
   ];
+
+  // Dummy stats to match the Growth page
+  const dummyStats = {
+    solved: 142,
+    successRate: "72.4%",
+    rank: "#1,240",
+    points: 4250
+  };
 
   if (isPending) return (
     <div className="flex justify-center items-center min-h-[60vh]">
@@ -34,7 +43,7 @@ const LandingPage = () => {
   // Helper to determine redirect path
   const getRedirectPath = (targetPath) => {
     if (!session) return "/auth";
-    return targetPath || "#";
+    return targetPath || "/";
   };
 
   return (
@@ -63,11 +72,11 @@ const LandingPage = () => {
         <div className="lg:w-[60%] space-y-6">
           <div className="bg-white neo-brutal rounded-none overflow-hidden">
             <div className="bg-sky-400 p-4 border-b-4 border-black">
-              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight">Top Problems</h2>
+              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight">Featured Problems</h2>
             </div>
             <div className="divide-y-2 divide-black">
               {problems.map((prob) => (
-                <Link key={prob.id} to={getRedirectPath()} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
+                <Link key={prob.id} to={getRedirectPath("#")} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
                   <div className="space-y-1">
                     <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic">{prob.title}</h3>
                     <div className="flex flex-wrap gap-2">
@@ -76,11 +85,14 @@ const LandingPage = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-black text-xl bg-white border-2 border-black px-2 shadow-[2px_2px_0px_0px_black]">
-                      {prob.rating}
-                    </span>
-                  </div>
+                    <div className="text-right">
+                      <span className={`font-black text-xl bg-white border-2 border-black px-2 shadow-[2px_2px_0px_0px_black] uppercase italic ${
+                        prob.difficulty === 'easy' ? 'text-emerald-500' : 
+                        prob.difficulty === 'normal' ? 'text-amber-500' : 'text-red-500'
+                      }`}>
+                        {prob.difficulty}
+                      </span>
+                    </div>
                 </Link>
               ))}
             </div>
@@ -105,7 +117,7 @@ const LandingPage = () => {
             </div>
             <div className="divide-y-2 divide-black">
               {contests.map((contest) => (
-                <Link key={contest.id} to={getRedirectPath()} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
+                <Link key={contest.id} to={getRedirectPath("#")} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
                   <div className="space-y-1">
                     <h3 className="font-black text-md leading-tight uppercase italic">{contest.title}</h3>
                     <p className="text-xs font-black opacity-60 uppercase">By {contest.host}</p>
@@ -117,29 +129,42 @@ const LandingPage = () => {
               ))}
             </div>
             <div className="p-4 text-center border-t-4 border-black bg-slate-900">
-              <Link to={getRedirectPath()} className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full flex justify-center">See More Contests</Link>
+              <Link to={getRedirectPath("/contests")} className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full flex justify-center">See More Contests</Link>
             </div>
           </div>
 
-          {/* Growth Stats Card */}
+          {/* Growth Stats Card - Refined to match current structure */}
           <div className="bg-white neo-brutal rounded-none overflow-hidden">
             <div className="bg-amber-400 p-4 border-b-4 border-black">
               <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight text-center">Growth Stats</h2>
             </div>
             <div className="p-6 space-y-6">
-              <div className="flex justify-between items-center">
-                <span className="font-black uppercase italic text-lg tracking-tighter">Problems Solved</span>
-                <span className="text-4xl font-black bg-white px-3 border-2 border-black shadow-[4px_4px_0px_0px_black]">0</span>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
+                      <Code2 size={16} className="text-sky-500 mb-1" />
+                      <span className="text-xl font-black">{session ? dummyStats.solved : 0}</span>
+                      <span className="text-[8px] font-black uppercase opacity-50">Solved</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
+                      <Target size={16} className="text-emerald-500 mb-1" />
+                      <span className="text-xl font-black">{session ? dummyStats.successRate : "0%"}</span>
+                      <span className="text-[8px] font-black uppercase opacity-50">Success</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
+                      <Award size={16} className="text-amber-500 mb-1" />
+                      <span className="text-xl font-black">{session ? dummyStats.rank : "#--"}</span>
+                      <span className="text-[8px] font-black uppercase opacity-50">Rank</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
+                      <Zap size={16} className="text-black mb-1" />
+                      <span className="text-xl font-black">{session ? dummyStats.points : 0}</span>
+                      <span className="text-[8px] font-black uppercase opacity-50">Points</span>
+                  </div>
               </div>
-              <div className="w-full bg-slate-200 h-8 border-4 border-black relative">
-                <div className="bg-emerald-400 h-full w-[0%] transition-all duration-500"></div>
-                <div className="absolute inset-0 flex items-center justify-center font-black text-xs uppercase mix-blend-difference text-white">Progress: 0%</div>
+              <div className="w-full bg-slate-200 h-4 border-2 border-black relative overflow-hidden">
+                <div className={`bg-emerald-400 h-full transition-all duration-500`} style={{ width: session ? '72.4%' : '0%' }}></div>
               </div>
-              <div className="flex justify-between items-center text-sm font-black uppercase italic opacity-80">
-                 <span className="bg-slate-900 text-white px-2">Rank: Unrated</span>
-                 <span className="bg-slate-900 text-white px-2">Rating: 0</span>
-              </div>
-              <Link to={getRedirectPath()} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</Link>
+              <Link to={getRedirectPath("/growth")} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</Link>
             </div>
           </div>
 

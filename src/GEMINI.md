@@ -1,11 +1,11 @@
 # CodingLab - Project Overview
 
 ## General Tech Stack
-- **Frontend:** React.js, Tailwind CSS (v4), DaisyUI (Theme: `acid`)
+- **Frontend:** React.js (v19), Tailwind CSS (v4), DaisyUI (v5, Theme: `acid`)
 - **Backend:** Node.js, Express.js (ES Modules)
 - **Authentication:** Better Auth (Unified RBAC)
-- **Database:** MongoDB with Mongoose
-- **Code Execution:** JDoodle API
+- **Database:** MongoDB with Mongoose (via MongoDB Atlas)
+- **Code Execution:** JDoodle API (Simplified execution)
 - **Background Tasks:** Inngest
 - **Media Storage:** Cloudinary
 
@@ -15,24 +15,20 @@
 - **Modules:** Use ES Modules (`import/export`) consistently across the codebase.
 - **Architecture:** Maintain a clear separation between frontend and backend logic.
 
-## User Roles
-1. **Student (The Solver):** Solve problems, track progress, join contests.
-2. **Problem Setter (The Creator):** Create/manage problems and analyze data.
-3. **Admin (The Moderator):** Platform governance and user management.
+## User Roles & Workflow
+1. **Student (The Solver):** Solve problems, track progress via the unified Landing Page dashboard, and join contests.
+2. **Problem Setter (The Creator):** Role toggle for students. Create/manage problems and analyze data.
+3. **Admin (The Moderator):** Platform governance and user management via a restricted portal.
 
 ## Project Scope
-CodingLab is a comprehensive web-based coding practice platform for university students, emphasizing reliability via asynchronous judging and a modern, gamified user experience.
+CodingLab is a comprehensive web-based coding practice platform for university students, emphasizing reliability via asynchronous judging and a modern, high-contrast neo-brutalist UI.
 
 ---
 
-### Documentation Sub-folders
-- [Frontend Documentation](./frontend/GEMINI.md)
+### Specialized Documentation
+- [Frontend Documentation](./frontend/GEMINI.md) - Design rules, UI conventions, and component structure.
 
 ---
 
-### Implementation Note: Simplification
-The project uses the **JDoodle API** for code execution to simplify the judging logic, replacing Judge0/Docker.
-
-
-### Extra instructions
-- Do not change or revert any text or design if it is done by the coder unless asked specifically to change. For example: Title font or color may be changed manually, it shall not be changed unless asked so.
+### Critical Instruction: Manual Changes
+- **Preserve Manual Edits:** Do NOT change or revert any design, color, size, or text modifications made manually by the coder. The coder's manual overrides always take precedence over AI defaults.

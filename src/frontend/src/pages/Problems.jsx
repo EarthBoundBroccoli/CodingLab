@@ -158,12 +158,12 @@ const Problems = () => {
                 {filteredProblems.length > 0 ? (
                     <div className="divide-y-4 divide-black">
                         {filteredProblems.map((prob) => (
-                            <div key={prob.id} className="flex flex-col md:flex-row hover:bg-red-50/50 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
+                            <div key={prob.id} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
                                 {/* Left Side: Index, Title, Tags */}
                                 <div className="flex-1 p-6 flex gap-6 items-start">
                                     <span className="text-2xl font-black text-red-200 group-hover:text-black transition-colors shrink-0">#{prob.id}</span>
                                     <div className="space-y-2">
-                                        <h3 className="text-2xl font-black uppercase italic group-hover:text-red-600 transition-colors">{prob.title}</h3>
+                                        <h3 className="text-2xl font-black uppercase italic group-hover:text-black transition-colors">{prob.title}</h3>
                                         <div className="flex flex-wrap gap-2">
                                             {prob.tags.map(tag => (
                                                 <span key={tag} className="px-3 py-1 border-2 border-black font-black text-xs uppercase bg-white">{tag}</span>
@@ -205,8 +205,8 @@ const Problems = () => {
             </div>
 
             <div className="mt-6 text-center">
-                <p className="font-black uppercase italic text-red-600 text-sm">
-                    {filteredProblems.length} problems shown in this red box
+                <p className="font-black uppercase italic text-sky-500 text-sm">
+                    {filteredProblems.length} problems shown in this page
                 </p>
             </div>
         </div>

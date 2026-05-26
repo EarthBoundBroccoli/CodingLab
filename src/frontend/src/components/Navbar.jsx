@@ -9,15 +9,15 @@ const Navbar = () => {
   const navLinks = session ? [
     { name: "Home", path: "/" },
     { name: "Problems", path: "/problems" },
-    { name: "Contests", path: null }, // Null functionality as requested
-    { name: "Growth", path: null },    // Null functionality as requested
+    { name: "Contests", path: "/contests" },
+    { name: "Growth", path: "/growth" },
   ] : [
     { name: "Explore", path: "/" },
     { name: "About", path: "/about" },
     { name: "Support", path: "/support" },
   ];
 
-  const isActive = (path) => path && location.pathname === path;
+  const isActive = (path) => path && (location.pathname === path || (path !== "/" && location.pathname.startsWith(path)));
 
   return (
     <div className="navbar bg-white px-4 lg:px-8 border-b-4 border-black">
