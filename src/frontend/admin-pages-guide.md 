@@ -1,0 +1,110 @@
+# Admin Pages Development Guide
+
+## 1. Admin Login + Auth
+Create an admin login page at /admin route.
+- Email and password fields
+- Hardcoded credentials: admin@example.com / admin123
+- On success → redirect to /admin/dashboard
+- On failure → show "Invalid credentials" error
+- Store login state using React Context or localStorage
+- Protect all /admin/* routes (redirect to login if not authenticated)
+
+Use the same styling as existing components in this project.
+## 2. Admin Dashboard
+Create an admin dashboard layout with sidebar at /admin/dashboard.
+
+Sidebar navigation links:
+- Dashboard (icon: home)
+- Users (icon: users) → /admin/users
+- Problem Requests (icon: inbox) → /admin/problem-requests
+- Contests (icon: trophy) → /admin/contests
+- Admin Profile (icon: user) → /admin/profile
+
+Main content area shows 4 statistic cards:
+- Total Users (show number from API/dummy data)
+- Total Problems (show number)
+- Active Today (show number)
+- Total Problems Pending (show number)
+
+Use Tailwind CSS. Make it responsive. The sidebar should be collapsible on mobile.
+
+## 3. User Management Page
+Create a user management page at /admin/users.
+
+Features:
+1. User Table with columns: Username, Solved Problems Count, Level
+2. Each row has an "Actions" button that opens a dropdown/modal with:
+   - Ban User (shows a form for feedback reason)
+   - Unban User
+   - Remove Account
+
+Behavior:
+- After clicking "Ban User" → show form asking "Reason for ban" → submit → show toast "Banned successfully"
+- After "Unban User" → show toast "Unbanned successfully"
+- After "Remove Account" → show confirmation modal "Are you sure?" → on confirm → show "Account removed successfully"
+
+Use dummy data for now (create an array of 5-10 sample users with different statuses).
+Style matches the existing dashboard.
+
+## 4. Problem Request Page
+Create a problem request page at /admin/problem-requests.
+
+Features:
+1. Table showing requested problems with columns:
+   - Title
+   - Difficulty (Easy/Medium/Hard)
+   - Status (Pending/Approved/Rejected)
+   - Action (View Problem button)
+
+2. Click "View Problem" → opens a modal showing:
+   - Problem title, description, examples, constraints
+   - Same interface as user problem page, but WITHOUT code editor/IDE
+   - Two buttons: "Approve" and "Reject"
+
+3. Approve button → changes status to Approved → show toast "Problem approved"
+
+4. Reject button → shows a form for feedback message (textarea) → submit → show toast "Feedback sent successfully" → status becomes Rejected
+
+Use dummy data with 5-10 sample problem requests.
+
+## 5. Contest Management Page
+Create a contest management page at /admin/contests with two sections:
+
+SECTION 1 - Contest List (top):
+- Table showing all contests with columns:
+  | Contest Name | Start Time | Duration | Status (Upcoming/Ongoing/Ended) |
+- Each row has Edit, Delete, and End Contest buttons
+
+SECTION 2 - Create Contest Form (bottom/side):
+Fields:
+- Contest Name (text input)
+- Description (textarea)
+- Start Time (datetime-local)
+- End Time (datetime-local)
+- Problem Selection (button that opens Problem Dashboard)
+
+PROBLEM SELECTION MODAL:
+- Shows all available problems with checkboxes
+- Admin can tick ✓ to add problem or ✗ to remove
+- Selected problems list shows below
+
+Additional buttons for each contest:
+- Edit Contest (opens prefilled form)
+- Delete Contest (confirmation modal)
+- End Contest manually (only for ongoing contests)
+
+Use dummy data for contests and problems.
+
+## 6. Admin Profile Page
+Create an admin profile page at /admin/profile showing:
+- Profile picture (placeholder)
+- Name: Admin
+- Email: admin@example.com
+- Role: Super Admin
+- Join date: [current date]
+
+Options:
+- Change Password (modal with current password, new password, confirm)
+- Logout button (clears auth, redirects to /admin/login)
+
+Style matches the dashboard.

@@ -1,5 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useSession } from "./lib/auth-client";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Auth from "./pages/Auth";
 import LandingPage from "./pages/LandingPage";
 import About from "./pages/About";
@@ -11,6 +10,44 @@ import Growth from "./pages/Growth";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import Navbar from "./components/Navbar";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminProblemRequests from "./pages/admin/AdminProblemRequests";
+import AdminContests from "./pages/admin/AdminContests";
+import AdminProfile from "./pages/admin/AdminProfile";
+import AdminProtectedRoute from "./components/AdminProtectedRoute";
+import AdminLayout from "./components/AdminLayout";
+
+function AppContent() {
+  const location = useLocation();
+  const hideNavbar = location.pathname.startsWith("/admin/");
+
+  return (
+    <div className="min-h-screen bg-base-200 selection:bg-primary selection:text-primary-content">
+      {!hideNavbar && <Navbar />}
+      <main>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/*" element={<AdminProtectedRoute />}>
+            <Route element={<AdminLayout />}>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="problem-requests" element={<AdminProblemRequests />} />
+              <Route path="contests" element={<AdminContests />} />
+              <Route path="profile" element={<AdminProfile />} />
+              <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
 
 // Route Guard Component
 const ProtectedRoute = ({ children, allowedRole }) => {
@@ -40,69 +77,7 @@ const ProtectedRoute = ({ children, allowedRole }) => {
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-base-200 selection:bg-emerald-400 selection:text-black">
-        <Navbar />
-        <main>
-            <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/support" element={<Support />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-
-                {/* Protected User Routes */}
-                <Route 
-                  path="/problems" 
-                  element={
-                    <ProtectedRoute>
-                      <Problems />
-                    </ProtectedRoute>
-                  } 
-                />
-
-                <Route 
-                  path="/contests" 
-                  element={
-                    <ProtectedRoute>
-                      <Contests />
-                    </ProtectedRoute>
-                  } 
-                />
-
-                <Route 
-                  path="/contests/previous" 
-                  element={
-                    <ProtectedRoute>
-                      <PreviousContests />
-                    </ProtectedRoute>
-                  } 
-                />
-
-                <Route 
-                  path="/growth" 
-                  element={
-                    <ProtectedRoute>
-                      <Growth />
-                    </ProtectedRoute>
-                  } 
-                />
-
-                {/* Protected Admin Routes */}
-                <Route 
-                  path="/admin/dashboard" 
-                  element={
-                    <ProtectedRoute allowedRole="admin">
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-        </main>
-      </div>
+      <AppContent />
     </Router>
   );
 }
