@@ -4,6 +4,8 @@
 - **Library:** React.js (v19)
 - **Styling:** Tailwind CSS (v4)
 - **UI Components:** DaisyUI (v5, Theme: `acid`)
+- **Visualizations:** Recharts (v2.15.0 - Used for performance analytics)
+- **Icons:** Lucide React
 - **Editor:** Monaco Editor
 
 ## Design Guidelines (Neo-Brutalism)
@@ -12,20 +14,37 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **Color Palette:**
   - **Brand:** Black (#000000) for headers and primary text.
   - **Buttons:** Slate-900 with White text.
-  - **Accents:** Emerald-400 for primary highlights and success states.
+  - **Accents:** Emerald-400 for primary highlights (Auth, success states, division tags).
   - **Categorization:** Sky-400 (Problems), Amber-400 (Growth/Stats).
 - **Typography:** 
   - The "CodingLab" brand name MUST use **League Spartan** and maintain `normal-case` (Mixed case).
   - Use high-contrast, bold, and uppercase for section headers.
 - **Layout:** High-density, high-contrast layouts. Prefer 60/40 splits for complex dashboards.
 
-## Frontend Folder Structure
-- `src/components`: Generic UI components (Navbar, Modal, etc.).
-- `src/pages`: Full-page route components.
-- `src/lib`: Configuration files (auth-client.js, hooks).
-- `src/assets`: Static assets (images, global fonts).
+## Core Pages & Components
+- **Landing Page (`/`):** Unified entry point. Adapts for guests (preview mode) and logged-in users (dashboard mode).
+- **Problems (`/problems`):** Full list of coding challenges with search and multi-tag filtering.
+- **Contests (`/contests`):** Hub for popular top 3 and currently running contests.
+- **Archive (`/contests/previous`):** Paginated historical contest database.
+- **Growth (`/growth`):** Performance dashboard with solve analysis charts and activity streaks.
+- **Auth (`/auth`):** Unified login/signup with role-based redirection.
+- **Admin Login (`/admin/login`):** Restricted portal for administrators only.
 
-## UI Conventions
+## UI Logic & Conventions
+- **Unified Dashboard:** The Student Dashboard is integrated into the Landing Page. Navigation labels dynamically change from "Explore" to "Home" after login.
+- **Access Control:** All interactive lists (Problems/Contests) on the Landing Page must redirect to `/auth` for guests.
+- **Filtering UI:** Standardized floating filter menu used in Problems and Archives. Support for multi-select tags and complex sorting (Alphabetical, Popularity, Division).
+- **Pagination:** Standard limit of **20 items per page** for all lists (except Growth activity table, which uses 10).
 - **SRP Enforcement:** Components like Navbars, Footers, and Pages must live in their own dedicated files.
-- **Modularity:** Abstract repeated UI patterns (like problem rows or contest cards) into modular components.
-- **DaisyUI usage:** Prefer using DaisyUI classes over custom CSS where possible to maintain theme consistency.
+- **Modularity:** Abstract repeated UI patterns into modular components in `src/components`.
+
+## Project Progress (Technical)
+- [x] **Authentication:** Fully functional Better Auth setup with MongoDB Atlas.
+- [x] **Redirection:** Role-based logic and protected route guards implemented.
+- [x] **Problem Discovery:** Searchable and filterable problems list.
+- [x] **Contest Hub:** Multi-tiered contest views (Popular, Running, Archive).
+- [x] **Analytics:** Growth page with PieCharts and Activity Lists.
+
+## Critical Instruction: Manual Changes
+- **Preserve Manual Edits:** Do NOT change or revert any colors, sizes, or text modifications made by the coder unless explicitly asked. If a design element has been manually customized, prioritize the new version over previous defaults.
+- **Partial Rewrites:** When updating a file, keep as much of the existing code as possible. Only modify the sections necessary for the current task.

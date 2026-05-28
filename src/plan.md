@@ -27,16 +27,19 @@ To ensure the codebase remains maintainable, readable, and easy to modify for a 
     3.  Implement **Better Auth** for secure session management. [x]
     4.  Establish Role-Based Access Control (RBAC) defining `Student`, `Problem Setter`, and `Admin` roles. [x]
     5.  Create a unified Login/Signup page that redirects users to their respective dashboards based on their role. [x]
-    6.  Build adaptive base layouts (e.g., a dynamic Navbar/Sidebar that changes based on role). [/] (Refactoring in progress)
+    6.  Build adaptive base layouts (e.g., a dynamic Navbar/Sidebar that changes based on role). [x]
 
 ### Phase 2: The Student Experience (Page-by-Page)
 *   **Goal:** Build the core end-user experience iteratively.
 *   **Pages:**
-    1.  **Student Dashboard:** A landing page displaying basic placeholder statistics and recent activity. [ ]
-    2.  **Problem Discovery:** A page listing problems with search and filtering capabilities. [ ]
-    3.  **The Workspace (Code Editor):** Integration of the Monaco Editor into a clean UI. [ ]
-    4.  **Execution Engine:** Connecting the workspace to the backend and JDoodle API for code execution, displaying instant verdicts. [ ]
-    5.  **Profile & Leaderboard:** Pages for gamification and tracking history. [ ]
+    1.  **Landing Page:** The main entry point with problem discovery and stats. [x]
+    2.  **About Us:** Information about the team and mission. [x]
+    3.  Support:** Help and feedback section. [x]
+    4.  **Student Dashboard:** A landing page displaying basic placeholder statistics and recent activity. [ ]
+    5.  **Problem Discovery:** A page listing problems with search and filtering capabilities. [ ]
+    6.  **The Workspace (Code Editor):** Integration of the Monaco Editor into a clean UI. [ ]
+    7.  **Execution Engine:** Connecting the workspace to the backend and JDoodle API for code execution, displaying instant verdicts. [ ]
+    8.  **Profile & Leaderboard:** Pages for gamification and tracking history. [ ]
 
 ### Phase 3: The Problem Setter Experience
 *   **Goal:** Enable content creation.

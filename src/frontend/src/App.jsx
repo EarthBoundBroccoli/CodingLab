@@ -1,6 +1,14 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Auth from "./pages/Auth";
-import Home from "./pages/Home";
+import LandingPage from "./pages/LandingPage";
+import About from "./pages/About";
+import Support from "./pages/Support";
+import Problems from "./pages/Problems";
+import Contests from "./pages/Contests";
+import PreviousContests from "./pages/PreviousContests";
+import Growth from "./pages/Growth";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 import Navbar from "./components/Navbar";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -40,6 +48,31 @@ function AppContent() {
     </div>
   );
 }
+
+// Route Guard Component
+const ProtectedRoute = ({ children, allowedRole }) => {
+  const { data: session, isPending } = useSession();
+
+  if (isPending) return (
+    <div className="min-h-screen flex items-center justify-center bg-base-200">
+      <span className="loading loading-ring loading-lg text-black"></span>
+    </div>
+  );
+
+  if (!session) {
+    // If trying to access admin dashboard, redirect to admin login
+    if (window.location.pathname.startsWith('/admin')) {
+        return <Navigate to="/admin/login" />;
+    }
+    return <Navigate to="/auth" />;
+  }
+
+  if (allowedRole && session.user.role !== allowedRole) {
+    return <Navigate to="/" />;
+  }
+
+  return children;
+};
 
 function App() {
   return (
