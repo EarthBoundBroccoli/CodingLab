@@ -1,24 +1,23 @@
+import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-// Better Auth handler should be mounted before express.json()
-app.all("/api/auth/*splat", toNodeHandler(auth));
-
 app.use(cors({
     origin: "http://localhost:5173", // Frontend URL
     credentials: true
 }));
+
 app.use(express.json());
+
+// Better Auth handler
+app.all("/api/auth/*splat", toNodeHandler(auth));
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -40,7 +39,7 @@ app.get('/api/me', async (req, res) => {
 });
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/codinglab')
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('Successfully connected to MongoDB via Mongoose');
     app.listen(PORT, () => {

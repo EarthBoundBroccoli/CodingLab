@@ -18,22 +18,35 @@ const Auth = () => {
 
         try {
             if (isLogin) {
-                await signIn.email({
+                const { error: signInError } = await signIn.email({
                     email,
                     password,
-                    callbackURL: "/"
                 });
+                
+                if (signInError) {
+                    setError(signInError.message || "Invalid Email or Password");
+                    setLoading(false);
+                    return;
+                }
             } else {
-                await signUp.email({
+                const { error: signUpError } = await signUp.email({
                     email,
                     password,
                     name,
-                    callbackURL: "/"
                 });
+
+                if (signUpError) {
+                    setError(signUpError.message || "Signup failed. Please try again.");
+                    setLoading(false);
+                    return;
+                }
             }
+            
+            // Hard refresh to clear any state and land clean on home page
+            window.location.href = "/";
+            
         } catch (err) {
-            setError(err.message || "Something went wrong");
-        } finally {
+            setError("A network error occurred. Please try again.");
             setLoading(false);
         }
     };
@@ -54,8 +67,8 @@ const Auth = () => {
                                 <label className="text-xs font-black uppercase tracking-widest text-black">Full Name</label>
                                 <input
                                     type="text"
-                                    placeholder="LEO MESSI"
-                                    className="w-full p-3 border-4 border-black font-black uppercase focus:bg-emerald-400 transition-colors outline-none rounded-none"
+                                    placeholder="Leo Messi"
+                                    className="w-full p-3 border-4 border-black font-black focus:bg-emerald-400 transition-colors outline-none rounded-none"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     required
@@ -97,7 +110,7 @@ const Auth = () => {
                         </div>
 
                         {error && (
-                            <div className="bg-error text-black border-2 border-black p-3 font-black text-xs uppercase italic">
+                            <div className="bg-red-100 text-red-600 border-4 border-red-600 p-3 font-black text-xs uppercase italic animate-bounce">
                                 {error}
                             </div>
                         )}
@@ -115,7 +128,10 @@ const Auth = () => {
 
                     <button 
                         className="w-full py-2 font-black uppercase text-sm hover:text-emerald-400 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 active:scale-95"
-                        onClick={() => setIsLogin(!isLogin)}
+                        onClick={() => {
+                            setIsLogin(!isLogin);
+                            setError("");
+                        }}
                     >
                         {isLogin ? "Create an Account" : "Back to Login"}
                     </button>
