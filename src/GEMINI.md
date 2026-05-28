@@ -27,6 +27,7 @@ CodingLab is a comprehensive web-based coding practice platform for university s
 
 ### Specialized Documentation
 - [Frontend Documentation](./frontend/GEMINI.md) - Design rules, UI conventions, and component structure.
+- [Admin Panel Documentation](./frontend/src/pages/admin/GEMINI.md) - Admin-specific layouts, routing, and workflows.
 
 ---
 

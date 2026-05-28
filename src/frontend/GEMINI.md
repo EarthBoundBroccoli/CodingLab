@@ -28,11 +28,12 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **Archive (`/contests/previous`):** Paginated historical contest database.
 - **Growth (`/growth`):** Performance dashboard with solve analysis charts and activity streaks.
 - **Auth (`/auth`):** Unified login/signup with role-based redirection.
-- **Admin Login (`/admin/login`):** Restricted portal for administrators only.
+- **Admin Panel (`/admin/*`):** Restricted portal for administrators. See `src/pages/admin/GEMINI.md` for specific admin architecture, pages, and workflows.
 
 ## UI Logic & Conventions
 - **Unified Dashboard:** The Student Dashboard is integrated into the Landing Page. Navigation labels dynamically change from "Explore" to "Home" after login.
-- **Access Control:** All interactive lists (Problems/Contests) on the Landing Page must redirect to `/auth` for guests.
+- **Admin Layout:** The Admin Panel uses a completely separate layout (`AdminLayout.jsx`) and hides the standard student Navbar to provide a distraction-free administrative experience.
+- **Access Control:** All interactive lists (Problems/Contests) on the Landing Page must redirect to `/auth` for guests. Admin routes are strictly protected by `AdminProtectedRoute.jsx`.
 - **Filtering UI:** Standardized floating filter menu used in Problems and Archives. Support for multi-select tags and complex sorting (Alphabetical, Popularity, Division).
 - **Pagination:** Standard limit of **20 items per page** for all lists (except Growth activity table, which uses 10).
 - **SRP Enforcement:** Components like Navbars, Footers, and Pages must live in their own dedicated files.
