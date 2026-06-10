@@ -61,18 +61,28 @@ const Navbar = () => {
             <div className="flex items-center gap-4">
                 {/* Become a Problem Setter Button */}
                 {session.user.role === "student" && (
-                    <button className="btn bg-white border-4 border-black font-black uppercase rounded-none hover:bg-error hover:text-white text-xs md:text-sm px-4 shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
-                        Become a problem setter
-                    </button>
+                    <Link to="/become-setter">
+                        <button className="btn bg-white border-4 border-black font-black uppercase rounded-none hover:bg-error hover:text-white text-xs md:text-sm px-4 shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+                            Become a problem setter
+                        </button>
+                    </Link>
                 )}
 
                 {/* User Dropdown */}
                 <div className="dropdown dropdown-end">
-                    <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar border-2 border-black">
-                        <div className="w-10 rounded-full bg-emerald-400 text-black flex items-center justify-center">
-                            <span className="text-lg font-black">
-                                {session.user.name?.[0].toUpperCase()}
-                            </span>
+                    <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar border-2 border-black overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-emerald-400 text-black flex items-center justify-center">
+                            {session.user.image ? (
+                                <img 
+                                    src={session.user.image} 
+                                    alt={session.user.name} 
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <span className="text-lg font-black">
+                                    {session.user.name?.[0].toUpperCase()}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <ul tabIndex={0} className="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-white rounded-none w-52 border-4 border-black">
