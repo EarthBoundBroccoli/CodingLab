@@ -18,9 +18,23 @@ export const auth = betterAuth({
                 defaultValue: "student",
                 input: false, // Prevents users from setting their own role during signup
             },
+            institution: {
+                type: "string",
+                required: false, // Make it optional for social logins, but required in standard signup UI
+            }
         },
+    },
+    socialProviders: {
+        github: {
+            clientId: process.env.GITHUB_CLIENT_ID || "placeholder",
+            clientSecret: process.env.GITHUB_CLIENT_SECRET || "placeholder",
+        },
+        google: {
+            clientId: process.env.GOOGLE_CLIENT_ID || "placeholder",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET || "placeholder",
+        }
     },
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
-    trustedOrigins: ["*"],
+    trustedOrigins: ["http://localhost:5173"],
 });

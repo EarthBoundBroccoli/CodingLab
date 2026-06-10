@@ -10,6 +10,8 @@ import PreviousContests from "./pages/PreviousContests";
 import Growth from "./pages/Growth";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import BecomeSetter from "./pages/BecomeSetter";
+import AddProblem from "./pages/AddProblem";
 import Navbar from "./components/Navbar";
 
 // Admin components
@@ -68,6 +70,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Growth />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/become-setter" 
+            element={
+              <ProtectedRoute>
+                <BecomeSetter />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/add-problem" 
+            element={
+              <ProtectedRoute allowedRole="problem_setter">
+                <AddProblem />
               </ProtectedRoute>
             } 
           />

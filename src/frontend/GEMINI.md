@@ -27,7 +27,7 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **Contests (`/contests`):** Hub for popular top 3 and currently running contests.
 - **Archive (`/contests/previous`):** Paginated historical contest database.
 - **Growth (`/growth`):** Performance dashboard with solve analysis charts and activity streaks.
-- **Auth (`/auth`):** Unified login/signup with role-based redirection.
+- **Auth (`/auth`):** Unified login/signup with role-based redirection, **Google/GitHub SSO**, and custom SVG icons (to avoid `lucide-react` export bugs). Includes an 'Institution' field for registration.
 - **Admin Panel (`/admin/*`):** Restricted portal for administrators. See `src/pages/admin/GEMINI.md` for specific admin architecture, pages, and workflows.
 
 ## UI Logic & Conventions
@@ -40,8 +40,8 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **Modularity:** Abstract repeated UI patterns into modular components in `src/components`.
 
 ## Project Progress (Technical)
-- [x] **Authentication:** Fully functional Better Auth setup with MongoDB Atlas.
-- [x] **Redirection:** Role-based logic and protected route guards implemented.
+- [x] **Authentication:** Fully functional Better Auth setup with MongoDB Atlas, including **Google & GitHub SSO**.
+- [x] **Redirection:** Role-based logic and protected route guards implemented. Absolute URLs are required for social callbacks (e.g., `http://localhost:5173/`).
 - [x] **Problem Discovery:** Searchable and filterable problems list.
 - [x] **Contest Hub:** Multi-tiered contest views (Popular, Running, Archive).
 - [x] **Analytics:** Growth page with PieCharts and Activity Lists.
