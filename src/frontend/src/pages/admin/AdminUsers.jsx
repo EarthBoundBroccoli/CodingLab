@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const initialUsers = [
   { id: 1, name: "John Doe", solved: 12, level: "Beginner", banned: false },
@@ -13,6 +13,7 @@ const initialUsers = [
 
 const AdminUsers = () => {
   const [users, setUsers] = useState(initialUsers);
+  const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [banTarget, setBanTarget] = useState(null);
   const [banReason, setBanReason] = useState("");
@@ -64,6 +65,12 @@ const AdminUsers = () => {
 
   const cancelRemove = () => setRemoveTarget(null);
 
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return users;
+    return users.filter((user) => user.name.toLowerCase().includes(query));
+  }, [users, searchQuery]);
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       {toast && (
@@ -82,6 +89,16 @@ const AdminUsers = () => {
               Manage platform users
             </p>
           </div>
+        </div>
+
+        <div className="p-4 border-b-4 border-black bg-slate-50">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name..."
+            className="w-full p-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100"
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -103,7 +120,14 @@ const AdminUsers = () => {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-8 font-bold uppercase text-sm text-slate-500">
+                    No users found
+                  </td>
+                </tr>
+              ) : (
+              filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-slate-100">
                   <td className="font-black uppercase">
                     <div className="flex items-center gap-2">
@@ -156,7 +180,8 @@ const AdminUsers = () => {
                     </details>
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

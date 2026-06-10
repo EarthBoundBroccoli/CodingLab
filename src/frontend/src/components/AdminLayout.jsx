@@ -5,7 +5,6 @@ import {
   Users,
   Inbox,
   Trophy,
-  User,
   Menu,
   X,
 } from "lucide-react";
@@ -16,7 +15,6 @@ const navItems = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/problem-requests", label: "Problem Requests", icon: Inbox },
   { to: "/admin/contests", label: "Contests", icon: Trophy },
-  { to: "/admin/profile", label: "Profile", icon: User },
 ];
 
 const AdminLayout = () => {
