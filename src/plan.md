@@ -44,7 +44,7 @@ To ensure the codebase remains maintainable, readable, and easy to modify for a 
 ### Phase 3: The Problem Setter Experience
 *   **Goal:** Enable content creation.
 *   **Pages:**
-    1.  **Problem Studio:** A comprehensive form page for drafting new problems, defining test cases, and constraints. [ ]
+    1.  **Problem Studio:** A comprehensive form page for drafting new problems, defining test cases, and constraints. [x]
     2.  **Setter Dashboard:** A hub to track the status of created problems (Draft, Pending, Approved) and view submission analytics. [ ]
 
 ### Phase 4: The Admin Experience

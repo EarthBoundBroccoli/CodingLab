@@ -59,11 +59,18 @@ const Navbar = () => {
       <div className="flex-none gap-4 md:gap-8 flex items-center">
         {session && (
             <div className="flex items-center gap-4">
-                {/* Become a Problem Setter Button */}
+                {/* Become a Problem Setter or Add Problems Button */}
                 {session.user.role === "student" && (
                     <Link to="/become-setter">
-                        <button className="btn bg-white border-4 border-black font-black uppercase rounded-none hover:bg-error hover:text-white text-xs md:text-sm px-4 shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+                        <button className="btn bg-white border-4 border-black font-black uppercase rounded-none hover:bg-error hover:text-white text-xs md:text-sm px-4 shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer">
                             Become a problem setter
+                        </button>
+                    </Link>
+                )}
+                {session.user.role === "problem_setter" && (
+                    <Link to="/add-problem">
+                        <button className="btn bg-white border-4 border-black font-black uppercase rounded-none hover:bg-emerald-400 hover:text-black text-xs md:text-sm px-4 shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer">
+                            Add New Problems
                         </button>
                     </Link>
                 )}

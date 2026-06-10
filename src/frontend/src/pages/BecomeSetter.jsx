@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { useSession } from "../lib/auth-client";
+import { useSession, authClient } from "../lib/auth-client";
 import { CheckCircle, Clock, AlertCircle, Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const BecomeSetter = () => {
     const { data: session } = useSession();
+    const navigate = useNavigate();
     
     // Form state
     const [formData, setFormData] = useState({
@@ -15,16 +17,42 @@ const BecomeSetter = () => {
         motivation: ""
     });
 
-    // Simulated submission status: null (not submitted), 'pending', 'rejected', 'accepted'
+    // Submission status: null, 'pending', 'rejected', 'accepted'
     const [submissionStatus, setSubmissionStatus] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    // Load status from localStorage for demo purposes
+    // Fetch status from backend on mount
     useEffect(() => {
-        const savedStatus = localStorage.getItem(`setter_status_${session?.user?.id}`);
-        if (savedStatus) {
-            setSubmissionStatus(savedStatus);
-        }
+        const fetchStatus = async () => {
+            if (!session?.user?.id) return;
+            try {
+                const response = await fetch("http://localhost:5000/api/setter/status", {
+                    credentials: "include"
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setSubmissionStatus(data.status);
+                    if (data.request) {
+                        setFormData({
+                            institute: data.request.institute || "",
+                            deptProgram: data.request.deptProgram || "",
+                            currSemester: data.request.currSemester || "",
+                            cgpa: data.request.cgpa || "",
+                            profileLinks: data.request.profileLinks || "",
+                            motivation: data.request.motivation || ""
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching setter status:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchStatus();
     }, [session]);
 
     const handleChange = (e) => {
@@ -32,17 +60,47 @@ const BecomeSetter = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setError("");
         
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            const response = await fetch("http://localhost:5000/api/setter/apply", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "include",
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setSubmissionStatus(data.status);
+                // Refresh Better Auth session on frontend so roles are updated
+                await authClient.getSession();
+                // Optionally reload to ensure navbar updates
+                window.location.reload();
+            } else {
+                setError(data.message || "Something went wrong.");
+            }
+        } catch (err) {
+            console.error("Error submitting application:", err);
+            setError("Failed to connect to backend server.");
+        } finally {
             setIsSubmitting(false);
-            setSubmissionStatus('pending');
-            localStorage.setItem(`setter_status_${session?.user?.id}`, 'pending');
-        }, 1500);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-base-200">
+                <span className="loading loading-ring loading-lg text-black"></span>
+            </div>
+        );
+    }
 
     // If user is already a problem setter, redirect or show message
     if (session?.user?.role === 'problem_setter' || submissionStatus === 'accepted') {
@@ -54,8 +112,11 @@ const BecomeSetter = () => {
                     <p className="text-xl font-bold mt-4 uppercase italic">You are now a Problem Setter.</p>
                 </div>
                 <div>
-                    <button className="btn bg-slate-900 text-white rounded-none border-4 border-black font-black uppercase px-10 neo-brutal hover:bg-emerald-400 hover:text-black">
-                        Go to Setter Dashboard
+                    <button 
+                        onClick={() => navigate("/add-problem")}
+                        className="btn bg-slate-900 text-white rounded-none border-4 border-black font-black uppercase px-10 neo-brutal hover:bg-emerald-400 hover:text-black cursor-pointer"
+                    >
+                        Go to Add Problems
                     </button>
                 </div>
             </div>
@@ -199,6 +260,13 @@ const BecomeSetter = () => {
                             ></textarea>
                             <p className="text-[11px] font-black opacity-50 uppercase italic">We'd love to know what motivates you to contribute to our community!</p>
                         </div>
+
+                        {error && (
+                            <div className="bg-error border-4 border-black p-4 text-black font-black uppercase text-sm flex items-center gap-2">
+                                <AlertCircle size={20} />
+                                {error}
+                            </div>
+                        )}
 
                         {/* Submit Button */}
                         <div className="pt-4">
