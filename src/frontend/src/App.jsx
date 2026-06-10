@@ -7,7 +7,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProblemRequests from "./pages/admin/AdminProblemRequests";
 import AdminContests from "./pages/admin/AdminContests";
-import AdminProfile from "./pages/admin/AdminProfile";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
 
@@ -30,7 +29,6 @@ function AppContent() {
               <Route path="users" element={<AdminUsers />} />
               <Route path="problem-requests" element={<AdminProblemRequests />} />
               <Route path="contests" element={<AdminContests />} />
-              <Route path="profile" element={<AdminProfile />} />
               <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
             </Route>
           </Route>
