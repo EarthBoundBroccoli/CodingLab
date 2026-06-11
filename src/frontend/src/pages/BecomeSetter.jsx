@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSession, authClient } from "../lib/auth-client";
+import { useSession, authClient, getBackendURL } from "../lib/auth-client";
 import { CheckCircle, Clock, AlertCircle, Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -28,7 +28,7 @@ const BecomeSetter = () => {
         const fetchStatus = async () => {
             if (!session?.user?.id) return;
             try {
-                const response = await fetch("http://localhost:5000/api/setter/status", {
+                const response = await fetch(`${getBackendURL()}/api/setter/status`, {
                     credentials: "include"
                 });
                 if (response.ok) {
@@ -66,7 +66,7 @@ const BecomeSetter = () => {
         setError("");
         
         try {
-            const response = await fetch("http://localhost:5000/api/setter/apply", {
+            const response = await fetch(`${getBackendURL()}/api/setter/apply`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

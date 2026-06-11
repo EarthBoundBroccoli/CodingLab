@@ -91,7 +91,7 @@ const Auth = () => {
         try {
             await signIn.social({
                 provider: provider,
-                callbackURL: "http://localhost:5173/",
+                callbackURL: window.location.origin + "/",
             });
         } catch (err) {
             setError(`Failed to connect with ${provider}.`);

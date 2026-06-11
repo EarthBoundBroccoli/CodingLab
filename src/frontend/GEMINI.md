@@ -38,10 +38,13 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **Pagination:** Standard limit of **20 items per page** for all lists (except Growth activity table, which uses 10).
 - **SRP Enforcement:** Components like Navbars, Footers, and Pages must live in their own dedicated files.
 - **Modularity:** Abstract repeated UI patterns into modular components in `src/components`.
+- **Markdown Rendering:** Problem statements support basic Markdown syntax (headers, bold, italic, lists, variables, code blocks) parsed via the custom utility [markdown.js](file:///D:/Code%20folder/SPL-2/src/frontend/src/lib/markdown.js). The creation form includes a dual-tabbed input box (Write vs. Preview) to inspect rendered results.
 
 ## Project Progress (Technical)
 - [x] **Authentication:** Fully functional Better Auth setup with MongoDB Atlas, including **Google & GitHub SSO**.
-- [x] **Redirection:** Role-based logic and protected route guards implemented. Absolute URLs are required for social callbacks (e.g., `http://localhost:5173/`).
+- [x] **Redirection:** Role-based logic and protected route guards implemented. Social callbacks use dynamic callback URLs (resolved via `window.location.origin`) to support local/collaboration environments.
+- [x] **Dynamic Base URLs:** Frontend dynamically resolves the backend location (`getBackendURL()`) to avoid hardcoded ports and support local networking.
+- [x] **Markdown Support:** Lightweight, dependency-free Markdown parser implemented in [markdown.js](file:///D:/Code%20folder/SPL-2/src/frontend/src/lib/markdown.js) to render statements. Built dual-tabbed Write/Preview editor in [AddProblem.jsx](file:///D:/Code%20folder/SPL-2/src/frontend/src/pages/AddProblem.jsx).
 - [x] **Problem Discovery:** Searchable and filterable problems list.
 - [x] **Contest Hub:** Multi-tiered contest views (Popular, Running, Archive).
 - [x] **Analytics:** Growth page with PieCharts and Activity Lists.

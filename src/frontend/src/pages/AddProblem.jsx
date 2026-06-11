@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useSession } from "../lib/auth-client";
+import { useSession, getBackendURL } from "../lib/auth-client";
 import { useNavigate } from "react-router-dom";
-import { Plus, Trash2, Send, CheckCircle, AlertCircle, FileText } from "lucide-react";
+import { Plus, Trash2, Send, CheckCircle, AlertCircle, FileText, ChevronDown } from "lucide-react";
+import { renderMarkdown } from "../lib/markdown";
 
 const AddProblem = () => {
     const { data: session } = useSession();
@@ -32,6 +33,14 @@ const AddProblem = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+
+    // Custom UI States
+    const [showDifficulty, setShowDifficulty] = useState(false);
+    const [hiddenInputError, setHiddenInputError] = useState("");
+    const [hiddenOutputError, setHiddenOutputError] = useState("");
+    const [inputKey, setInputKey] = useState(0);
+    const [outputKey, setOutputKey] = useState(0);
+    const [statementTab, setStatementTab] = useState("write");
 
     const availableTags = [
         "Array", "String", "Dynamic Programming", "Graph", "Math", 
@@ -66,30 +75,64 @@ const AddProblem = () => {
     // File reading handlers
     const handleHiddenInputUpload = (e) => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            setHiddenInputFile(null);
+            setHiddenInputContent("");
+            setHiddenInputError("");
+            return;
+        }
+
+        if (!file.name.toLowerCase().endsWith('.txt')) {
+            setHiddenInputFile(null);
+            setHiddenInputContent("");
+            setHiddenInputError("Error: Only .txt files are allowed.");
+            setInputKey(prev => prev + 1);
+            return;
+        }
         
+        setHiddenInputError("");
         setHiddenInputFile(file);
         const reader = new FileReader();
         reader.onload = (event) => {
             setHiddenInputContent(event.target.result);
         };
         reader.onerror = () => {
-            setError("Failed to read hidden input.txt file");
+            setHiddenInputError("Failed to read hidden input.txt file");
+            setHiddenInputFile(null);
+            setHiddenInputContent("");
+            setInputKey(prev => prev + 1);
         };
         reader.readAsText(file);
     };
 
     const handleHiddenOutputUpload = (e) => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            setHiddenOutputFile(null);
+            setHiddenOutputContent("");
+            setHiddenOutputError("");
+            return;
+        }
+
+        if (!file.name.toLowerCase().endsWith('.txt')) {
+            setHiddenOutputFile(null);
+            setHiddenOutputContent("");
+            setHiddenOutputError("Error: Only .txt files are allowed.");
+            setOutputKey(prev => prev + 1);
+            return;
+        }
         
+        setHiddenOutputError("");
         setHiddenOutputFile(file);
         const reader = new FileReader();
         reader.onload = (event) => {
             setHiddenOutputContent(event.target.result);
         };
         reader.onerror = () => {
-            setError("Failed to read hidden output.txt file");
+            setHiddenOutputError("Failed to read hidden output.txt file");
+            setHiddenOutputFile(null);
+            setHiddenOutputContent("");
+            setOutputKey(prev => prev + 1);
         };
         reader.readAsText(file);
     };
@@ -105,8 +148,11 @@ const AddProblem = () => {
         if (!statement.trim()) return setError("Problem Statement is required.");
         if (!inputFormat.trim()) return setError("Input Format is required.");
         if (!outputFormat.trim()) return setError("Output Format is required.");
-        if (!hiddenInputContent.trim()) return setError("Please upload a valid hidden input.txt file.");
-        if (!hiddenOutputContent.trim()) return setError("Please upload a valid hidden output.txt file.");
+        
+        if (hiddenInputError) return setError(hiddenInputError);
+        if (hiddenOutputError) return setError(hiddenOutputError);
+        if (!hiddenInputFile || !hiddenInputContent.trim()) return setError("Please upload a valid hidden input.txt file.");
+        if (!hiddenOutputFile || !hiddenOutputContent.trim()) return setError("Please upload a valid hidden output.txt file.");
 
         // Validate samples
         for (let i = 0; i < samples.length; i++) {
@@ -132,7 +178,7 @@ const AddProblem = () => {
         };
 
         try {
-            const response = await fetch("http://localhost:5000/api/problem/add", {
+            const response = await fetch(`${getBackendURL()}/api/problem/add`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -158,6 +204,10 @@ const AddProblem = () => {
                 setHiddenInputContent("");
                 setHiddenOutputFile(null);
                 setHiddenOutputContent("");
+                setHiddenInputError("");
+                setHiddenOutputError("");
+                setInputKey(prev => prev + 1);
+                setOutputKey(prev => prev + 1);
                 
                 // Redirect back to problems list after 2 seconds
                 setTimeout(() => {
@@ -214,19 +264,45 @@ const AddProblem = () => {
                                     required
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-black">
+                             <div className="space-y-2 relative">
+                                <label className="text-xs font-black uppercase tracking-widest text-black block">
                                     Difficulty <span className="text-error">*</span>
                                 </label>
-                                <select
-                                    className="w-full p-3 border-4 border-black font-black bg-white focus:bg-emerald-50 outline-none rounded-none"
-                                    value={difficulty}
-                                    onChange={(e) => setDifficulty(e.target.value)}
-                                >
-                                    <option value="Easy">Easy</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="Hard">Hard</option>
-                                </select>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDifficulty(!showDifficulty)}
+                                        className="w-full p-3 border-4 border-black font-black bg-white text-left flex justify-between items-center transition-all shadow-[4px_4px_0px_0px_black] hover:bg-slate-50 active:translate-x-1 active:translate-y-1 active:shadow-none uppercase text-sm"
+                                    >
+                                        <span>{difficulty}</span>
+                                        <ChevronDown className={`transition-transform duration-200 ${showDifficulty ? "rotate-180" : ""}`} size={20} />
+                                    </button>
+                                    {showDifficulty && (
+                                        <>
+                                            <div 
+                                                className="fixed inset-0 z-40" 
+                                                onClick={() => setShowDifficulty(false)} 
+                                            />
+                                            <div className="absolute top-full left-0 w-full mt-2 bg-white neo-brutal p-4 z-50 border-4 border-black shadow-[4px_4px_0px_0px_black] flex flex-col gap-2">
+                                                {["Easy", "Medium", "Hard"].map((opt) => (
+                                                    <button
+                                                        key={opt}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDifficulty(opt);
+                                                            setShowDifficulty(false);
+                                                        }}
+                                                        className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors ${
+                                                            difficulty === opt ? "bg-emerald-400" : "hover:bg-slate-100"
+                                                        }`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -258,17 +334,49 @@ const AddProblem = () => {
 
                         {/* Problem Statement */}
                         <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-black">
-                                Problem Statement (Markdown Supported) <span className="text-error">*</span>
-                            </label>
-                            <textarea
-                                rows="8"
-                                placeholder="Describe the constraints, story, rules and criteria of the problem..."
-                                className="w-full p-3 border-4 border-black font-black focus:bg-emerald-50 outline-none rounded-none resize-y"
-                                value={statement}
-                                onChange={(e) => setStatement(e.target.value)}
-                                required
-                            ></textarea>
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-black uppercase tracking-widest text-black">
+                                    Problem Statement (Markdown Supported) <span className="text-error">*</span>
+                                </label>
+                                <div className="flex border-2 border-black font-black text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStatementTab("write")}
+                                        className={`px-3 py-1 uppercase cursor-pointer transition-colors ${statementTab === "write" ? "bg-black text-white" : "bg-white text-black hover:bg-slate-100"}`}
+                                    >
+                                        Write
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStatementTab("preview")}
+                                        className={`px-3 py-1 uppercase cursor-pointer border-l-2 border-black transition-colors ${statementTab === "preview" ? "bg-black text-white" : "bg-white text-black hover:bg-slate-100"}`}
+                                    >
+                                        Preview
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {statementTab === "write" ? (
+                                <textarea
+                                    rows="8"
+                                    placeholder="Describe the constraints, story, rules and criteria of the problem... (Markdown is supported! Use $var$ for math/monospace variables)"
+                                    className="w-full p-3 border-4 border-black font-bold focus:bg-emerald-50 outline-none rounded-none resize-y"
+                                    value={statement}
+                                    onChange={(e) => setStatement(e.target.value)}
+                                    required
+                                ></textarea>
+                            ) : (
+                                <div className="w-full p-4 border-4 border-black bg-slate-50 min-h-[220px] max-h-[400px] overflow-y-auto rounded-none">
+                                    {statement.trim() ? (
+                                        <div 
+                                            className="font-medium text-black prose max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: renderMarkdown(statement) }}
+                                        />
+                                    ) : (
+                                        <p className="text-xs font-black uppercase text-slate-400 italic">Nothing to preview. Start writing in the "Write" tab!</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Input & Output Formats */}
@@ -436,15 +544,43 @@ const AddProblem = () => {
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         <input
+                                            key={`input-file-${inputKey}`}
                                             type="file"
                                             accept=".txt"
                                             onChange={handleHiddenInputUpload}
                                             className="file-input file-input-bordered border-2 border-black rounded-none bg-white font-bold w-full file-input-sm"
-                                            required
+                                            required={!hiddenInputFile}
                                         />
-                                        {hiddenInputFile && (
-                                            <div className="text-[11px] font-black text-emerald-600 bg-emerald-100 p-2 border border-emerald-400">
-                                                SUCCESS: Loaded {hiddenInputFile.name} ({hiddenInputContent.length} characters)
+                                        {hiddenInputError && (
+                                            <div className="flex items-center justify-between text-[11px] font-black text-red-600 bg-red-100 p-2 border border-red-400">
+                                                <span>{hiddenInputError}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setHiddenInputError("");
+                                                        setInputKey(prev => prev + 1);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-800 font-bold uppercase underline ml-2 cursor-pointer"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
+                                        )}
+                                        {hiddenInputFile && !hiddenInputError && (
+                                            <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 bg-emerald-100 p-2 border border-emerald-400">
+                                                <span>SUCCESS: Loaded {hiddenInputFile.name} ({hiddenInputContent.length} characters)</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setHiddenInputFile(null);
+                                                        setHiddenInputContent("");
+                                                        setHiddenInputError("");
+                                                        setInputKey(prev => prev + 1);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-800 font-bold uppercase underline ml-2 cursor-pointer"
+                                                >
+                                                    Remove
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -458,15 +594,43 @@ const AddProblem = () => {
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         <input
+                                            key={`output-file-${outputKey}`}
                                             type="file"
                                             accept=".txt"
                                             onChange={handleHiddenOutputUpload}
                                             className="file-input file-input-bordered border-2 border-black rounded-none bg-white font-bold w-full file-input-sm"
-                                            required
+                                            required={!hiddenOutputFile}
                                         />
-                                        {hiddenOutputFile && (
-                                            <div className="text-[11px] font-black text-emerald-600 bg-emerald-100 p-2 border border-emerald-400">
-                                                SUCCESS: Loaded {hiddenOutputFile.name} ({hiddenOutputContent.length} characters)
+                                        {hiddenOutputError && (
+                                            <div className="flex items-center justify-between text-[11px] font-black text-red-600 bg-red-100 p-2 border border-red-400">
+                                                <span>{hiddenOutputError}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setHiddenOutputError("");
+                                                        setOutputKey(prev => prev + 1);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-800 font-bold uppercase underline ml-2 cursor-pointer"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
+                                        )}
+                                        {hiddenOutputFile && !hiddenOutputError && (
+                                            <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 bg-emerald-100 p-2 border border-emerald-400">
+                                                <span>SUCCESS: Loaded {hiddenOutputFile.name} ({hiddenOutputContent.length} characters)</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setHiddenOutputFile(null);
+                                                        setHiddenOutputContent("");
+                                                        setHiddenOutputError("");
+                                                        setOutputKey(prev => prev + 1);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-800 font-bold uppercase underline ml-2 cursor-pointer"
+                                                >
+                                                    Remove
+                                                </button>
                                             </div>
                                         )}
                                     </div>

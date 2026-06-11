@@ -5,16 +5,36 @@ import cors from 'cors';
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 
-import { User } from './models/User.js';
-import { SetterRequest } from './models/SetterRequest.js';
-import { Problem } from './models/Problem.js';
+// Routes Imports
+import setterRoutes from "./routes/setterRoutes.js";
+import problemRoutes from "./routes/problemRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-    origin: "http://localhost:5173", // Frontend URL
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, postman)
+        if (!origin) return callback(null, true);
+        
+        const isAllowed = allowedOrigins.includes(origin) || 
+                          origin.startsWith("http://localhost:") || 
+                          origin.startsWith("http://127.0.0.1:") || 
+                          /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/.test(origin);
+        
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 
@@ -22,6 +42,18 @@ app.use(express.json());
 
 // Better Auth handler
 app.all("/api/auth/*splat", toNodeHandler(auth));
+
+
+
+
+// Mount routes
+app.use("/api/setter", setterRoutes);
+app.use("/api/problem", problemRoutes);
+
+
+
+
+
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -41,162 +73,25 @@ app.get('/api/me', async (req, res) => {
     res.json(session);
 });
 
-// GET setter application status
-app.get('/api/setter/status', async (req, res) => {
-    try {
-        const session = await auth.api.getSession({
-            headers: req.headers
-        });
-
-        if (!session) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
-
-        const request = await SetterRequest.findOne({ userId: session.user.id });
-        if (!request) {
-            return res.json({ status: null });
-        }
-
-        res.json({
-            status: request.status,
-            request
-        });
-    } catch (error) {
-        console.error('Error fetching setter status:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-// POST submit setter application
-app.post('/api/setter/apply', async (req, res) => {
-    try {
-        const session = await auth.api.getSession({
-            headers: req.headers
-        });
-
-        if (!session) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
-
-        const { institute, deptProgram, currSemester, cgpa, profileLinks, motivation } = req.body;
-
-        if (!institute || !deptProgram || !currSemester || !cgpa || !profileLinks || !motivation) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-
-        // Check if application already exists
-        const existingRequest = await SetterRequest.findOne({ userId: session.user.id });
-        if (existingRequest) {
-            return res.status(400).json({ message: "Application already submitted" });
-        }
-
-        // Create the application. We default status to 'accepted' to satisfy testing requirement:
-        // "after submitting the form i directly become setter (for now) as i need to test things out."
-        // We will keep 'pending' logic commented out or structured so it's there as requested.
-        const newRequest = new SetterRequest({
-            userId: session.user.id,
-            institute,
-            deptProgram,
-            currSemester,
-            cgpa,
-            profileLinks,
-            motivation,
-            status: 'accepted' // TESTING OVERRIDE: Directly approved (Normally 'pending')
-        });
-
-        await newRequest.save();
-
-        // Directly upgrade user's role to 'problem_setter' for testing purposes
-        await User.updateOne(
-            { _id: session.user.id },
-            { $set: { role: 'problem_setter' } }
-        );
-
-        res.status(201).json({
-            message: "Application submitted and auto-approved for testing",
-            status: 'accepted'
-        });
-    } catch (error) {
-        console.error('Error submitting setter application:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-// POST add new problem
-app.post('/api/problem/add', async (req, res) => {
-    try {
-        const session = await auth.api.getSession({
-            headers: req.headers
-        });
-
-        if (!session) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
-
-        // Verify that the user is a problem setter
-        if (session.user.role !== 'problem_setter') {
-            return res.status(403).json({ message: "Forbidden: Only problem setters can add problems." });
-        }
-
-        const {
-            title,
-            difficulty,
-            tags,
-            statement,
-            inputFormat,
-            outputFormat,
-            timeLimit,
-            memoryLimit,
-            samples,
-            hiddenInput,
-            hiddenOutput
-        } = req.body;
-
-        // Validation
-        if (!title || !difficulty || !tags || !statement || !inputFormat || !outputFormat || !timeLimit || !memoryLimit || !samples || !hiddenInput || !hiddenOutput) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-
-        if (!Array.isArray(samples) || samples.length < 1 || samples.length > 5) {
-            return res.status(400).json({ message: "Between 1 and 5 sample cases are required." });
-        }
-
-        const newProblem = new Problem({
-            title,
-            difficulty,
-            tags,
-            statement,
-            inputFormat,
-            outputFormat,
-            timeLimit,
-            memoryLimit,
-            samples,
-            hiddenInput,
-            hiddenOutput,
-            setterId: session.user.id,
-            status: 'approved' // Auto-approved for now
-        });
-
-        const savedProblem = await newProblem.save();
-
-        res.status(201).json({
-            message: "Problem created successfully",
-            problemId: savedProblem._id
-        });
-    } catch (error) {
-        console.error('Error creating problem:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI)
+const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/codinglab";
+
+console.log('Connecting to MongoDB...');
+mongoose.connect(mongoUri)
   .then(() => {
     console.log('Successfully connected to MongoDB via Mongoose');
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
   })
   .catch((error) => {
-    console.error('MongoDB connection error:', error);
+    console.error('MongoDB connection error:', error.message);
+    console.warn('Backend server running without active MongoDB Atlas connection.');
+    if (!process.env.MONGODB_URI) {
+      console.warn('Ensure you have a local MongoDB running at mongodb://127.0.0.1:27017/codinglab');
+    } else {
+      console.warn('Please check if your IP address is whitelisted in MongoDB Atlas Network Access.');
+    }
   });
+
+// Start Express server regardless of MongoDB connection state
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
