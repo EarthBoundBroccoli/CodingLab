@@ -50,7 +50,7 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - [x] **Problem Discovery:** Searchable and filterable problems list.
 - [x] **Contest Hub:** Multi-tiered contest views (Popular, Running, Archive).
 - [x] **Analytics:** Growth page with PieCharts and Activity Lists.
-- [x] **Code Workspace & Editor:** Fully functional dynamic workspace page featuring split-screen markdown parsing and a custom-themed Monaco Editor with multi-language boilerplate configuration.
+- [x] **Code Workspace & Editor:** Fully functional dynamic workspace page featuring draggable resizable multi-panels, custom-themed Monaco Editor with boilerplates, and an integrated tabbed execution terminal connected to the JDoodle compiler backend.
 
 ## Critical Instruction: Manual Changes
 - **Preserve Manual Edits:** Do NOT change or revert any colors, sizes, or text modifications made by the coder unless explicitly asked. If a design element has been manually customized, prioritize the new version over previous defaults.

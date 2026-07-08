@@ -104,19 +104,22 @@ SPL-2/
    - Split-screen layout (60/40) for problem statement vs code editor workspace (`/problems/:id`).
    - Parses statement dynamically using custom markdown parser and renders sample testcases.
    - Fully interactive Monaco Editor integrated with custom theme (`codinglab-dark`), syntax switcher, and boilerplate templates (C++, Java, Python).
+   - Draggable horizontal and vertical panel splits using `react-resizable-panels`.
 10. **High-Fidelity Database Seeder:**
     - Seeding script `seed.js` to create 124 users (1 admin, 2 setters, 2 specific students, 119 generic), 48 approved problems, 5 pending problems (with hidden input/output file strings), and 2 pending setter requests.
+11. **Backend Code Compilation Engine (JDoodle API):**
+    - Created language mapping utility mapping selections to official JDoodle versions.
+    - Implemented `/api/submissions/run` POST handler using `axios` to execute code scripts and custom inputs.
+    - Added custom tabbed console terminal (stdin / stdout result panel) matching Neo-Brutalist parameters to display compiler outputs and runtime resource metrics.
 
 ### Work in Progress & Future Implementation ⏳
 1. **Code Execution Engine:**
-   - [ ] Hooking up Monaco editor input to backend controller.
-   - [ ] Integration with the JDoodle API to compile/run code.
    - [ ] Building secure test case evaluation to output verdicts (AC, WA, TLE, MLE, RE).
-3. **Background Tasks:**
+2. **Background Tasks:**
    - [ ] Setup of Inngest backend queue for asynchronous judging.
-4. **Video Solutions:**
+3. **Video Solutions:**
    - [ ] Cloudinary media upload integration for video solutions.
-5. **Admin Contest Creator:**
+4. **Admin Contest Creator:**
    - [ ] Managing upcoming contests and setting schedules.
 
 ---
