@@ -34,10 +34,23 @@
 
 ### 📝 Problem Setter Applications
 - `GET /api/setter/status` - Checks status of current user's elevation request.
-- `POST /api/setter/apply` - Submits an elevation application (auto-approved for testing).
+- `POST /api/setter/apply` - Submits an elevation application (creates a pending SetterRequest document).
 
 ### 💻 Problem Management
 - `POST /api/problem/add` - Adds a new coding problem (requires `problem_setter` role).
+- `GET /api/problem` (also mounted at `GET /api/problems`) - Fetches all coding problems in the database (newest first).
+- `GET /api/problem/:id` - Fetches the details of a single coding problem by its document ID.
+
+### 🛡️ Admin Panel & Governance
+- `GET /api/admin/setter-requests` - Returns all pending setter applications.
+- `PUT /api/admin/setter-requests/:id/decide` - Approves or rejects a setter request (approved turns the student into a `problem_setter`).
+- `GET /api/admin/users` - Fetches all users registered on the platform.
+- `GET /api/admin/dashboard-summary` - Returns counts (totalUsers, totalProblems, pendingProblems), recent problem requests (last 5 pending), and top contributors (based on approved problems).
+- `PUT /api/admin/problems/:id/status` - Moderates a problem request, setting its status to `'approved'` or `'rejected'`.
+
+### 🔔 Notifications
+- `GET /api/notifications` - Fetches all notifications for the logged-in student (sorted newest first).
+- `PATCH /api/notifications/read-all` - Marks all unread notifications as read.
 
 ---
 

@@ -73,17 +73,19 @@ SPL-2/
 ## 📈 Current Progress & Feature Status
 
 ### Completed Features ✅
-1. **Unified Authentication (Better Auth):**
-   - Implemented email/password signup and login.
+1. **Unified Authentication (Better Auth & Simulated Admin):**
+   - Implemented email/password signup and login for students.
    - Built **Google** and **GitHub SSO** integration.
    - Dynamically resolves origin address for callbacks to accommodate localhost, local IP network (e.g. `192.168.x.x`), and custom domains.
    - Role-Based Access Control (RBAC) with three roles: `student`, `problem_setter`, `admin`.
+   - Simulated local auth configuration + backend bypass header (`x-admin-token`) to separate admin sessions from student cookie sessions.
 2. **Dynamic Base Networking:**
    - CORS policy and auth headers allow seamless cross-origin requests.
    - Backend auto-resolving supports async DB connections (starts serving even if MongoDB Atlas is blocked by firewall).
 3. **Problem Discovery:**
-   - Searchable listing of problems.
-   - Advanced filters by difficulty, topic tags, and keyword search.
+   - Searchable listing of approved problems fetched from MongoDB.
+   - Advanced filters by difficulty, topic tags dynamically loaded from the database, and keyword search.
+   - Home page features top 10 most recently approved live problems.
 4. **Markdown Support:**
    - Lightweight, dependency-free Markdown parser implemented in frontend (`src/frontend/src/lib/markdown.js`).
    - Integrated live write vs preview tabbed area in Problem Studio for setters.
@@ -93,12 +95,20 @@ SPL-2/
    - **Growth Page:** Fully functional dashboard containing Recharts PieCharts/BarCharts visualizing solve statistics, activity logs, and streak calendars.
 7. **Contest Hub & Archive:**
    - Live contests display, popular contests list, and historical contest archive with search/pagination.
+8. **Platform Governance (Admin Workflows):**
+   - Admin Dashboard stats (Total Users -> 124, Total Problems -> 48, etc.) hooked to live API `/api/admin/dashboard-summary`.
+   - Moderation portal: Reviewing, approving, or rejecting new problem draft requests using dynamic status update API (`PUT /api/admin/problems/:id/status`).
+   - Admin User management page: Live database view displaying platform users (`GET /api/admin/users`).
+   - Review Audit Modal: Populates hidden inputs, outputs, time limits, and memory limits for administrators to inspect testcase assets.
+9. **Problem Workspace View & Monaco Integration:**
+   - Split-screen layout (60/40) for problem statement vs code editor workspace (`/problems/:id`).
+   - Parses statement dynamically using custom markdown parser and renders sample testcases.
+   - Fully interactive Monaco Editor integrated with custom theme (`codinglab-dark`), syntax switcher, and boilerplate templates (C++, Java, Python).
+10. **High-Fidelity Database Seeder:**
+    - Seeding script `seed.js` to create 124 users (1 admin, 2 setters, 2 specific students, 119 generic), 48 approved problems, 5 pending problems (with hidden input/output file strings), and 2 pending setter requests.
 
 ### Work in Progress & Future Implementation ⏳
-1. **The Workspace (Code Editor):**
-   - [ ] Integration of the Monaco Editor into the problem workspace.
-   - [ ] Split screen layout (60/40) for problem statement vs code editor.
-2. **Code Execution Engine:**
+1. **Code Execution Engine:**
    - [ ] Hooking up Monaco editor input to backend controller.
    - [ ] Integration with the JDoodle API to compile/run code.
    - [ ] Building secure test case evaluation to output verdicts (AC, WA, TLE, MLE, RE).
@@ -106,10 +116,8 @@ SPL-2/
    - [ ] Setup of Inngest backend queue for asynchronous judging.
 4. **Video Solutions:**
    - [ ] Cloudinary media upload integration for video solutions.
-5. **Platform Governance (Admin Workflows):**
-   - [ ] Moderation portal: Approving or rejecting new problem draft requests created by setters.
-   - [ ] Admin User management page: Granting/revoking roles, resolving setter elevation applications.
-   - [ ] Admin Contest Creator: Managing upcoming contests and setting schedules.
+5. **Admin Contest Creator:**
+   - [ ] Managing upcoming contests and setting schedules.
 
 ---
 

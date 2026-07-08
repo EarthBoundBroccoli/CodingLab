@@ -102,7 +102,7 @@ const LandingPage = () => {
             ) : (
               <div className="divide-y-2 divide-black">
                 {problems.map((prob) => (
-                  <Link key={prob._id} to={getRedirectPath("#")} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
+                  <Link key={prob._id} to={getRedirectPath(`/problems/${prob._id}`)} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
                     <div className="space-y-1">
                       <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic text-black">{prob.title}</h3>
                       <div className="flex flex-wrap gap-2">

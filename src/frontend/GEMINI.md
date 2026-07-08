@@ -22,13 +22,15 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - **Layout:** High-density, high-contrast layouts. Prefer 60/40 splits for complex dashboards.
 
 ## Core Pages & Components
-- **Landing Page (`/`):** Unified entry point. Adapts for guests (preview mode) and logged-in users (dashboard mode).
-- **Problems (`/problems`):** Full list of coding challenges with search and multi-tag filtering.
+- **Landing Page (`/`):** Unified entry point. Fetches and slices the top 10 most recently approved live problems from the database for the "Featured Problems" section.
+- **Problems (`/problems`):** Full list of approved coding challenges fetched from MongoDB with search, dynamic tag extraction/filtering, difficulty filtering, and active client-side pagination.
+- **Problem Workspace (`/problems/:id`):** Split-screen editor environment (60/40 statement vs code IDE). Renders problem statements using the custom markdown parser, lists input/output formats, maps public samples, and contains language drop-downs and execution controls.
 - **Contests (`/contests`):** Hub for popular top 3 and currently running contests.
 - **Archive (`/contests/previous`):** Paginated historical contest database.
 - **Growth (`/growth`):** Performance dashboard with solve analysis charts and activity streaks.
 - **Auth (`/auth`):** Unified login/signup with role-based redirection, **Google/GitHub SSO**, and custom SVG icons (to avoid `lucide-react` export bugs). Includes an 'Institution' field for registration.
-- **Admin Panel (`/admin/*`):** Restricted portal for administrators. See `src/pages/admin/GEMINI.md` for specific admin architecture, pages, and workflows.
+- **Inbox (`/inbox`):** User notification list showing color-coded Neo-Brutalist cards containing elevation request rejections with reason notes.
+- **Admin Panel (`/admin/*`):** Restricted portal for administrators containing a live dashboard summary stats grid, user list management page (`/admin/users`), problem request moderation queue (`/admin/problem-requests`), and setter approval queue (`/admin/setter-approvals`). Includes review modals with hidden testcase asset auditing capabilities.
 
 ## UI Logic & Conventions
 - **Unified Dashboard:** The Student Dashboard is integrated into the Landing Page. Navigation labels dynamically change from "Explore" to "Home" after login.
@@ -48,6 +50,7 @@ To maintain visual consistency, all frontend contributors must follow these UI r
 - [x] **Problem Discovery:** Searchable and filterable problems list.
 - [x] **Contest Hub:** Multi-tiered contest views (Popular, Running, Archive).
 - [x] **Analytics:** Growth page with PieCharts and Activity Lists.
+- [x] **Code Workspace & Editor:** Fully functional dynamic workspace page featuring split-screen markdown parsing and a custom-themed Monaco Editor with multi-language boilerplate configuration.
 
 ## Critical Instruction: Manual Changes
 - **Preserve Manual Edits:** Do NOT change or revert any colors, sizes, or text modifications made by the coder unless explicitly asked. If a design element has been manually customized, prioritize the new version over previous defaults.

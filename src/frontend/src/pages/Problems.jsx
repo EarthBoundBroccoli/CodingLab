@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Search, Filter, ChevronLeft, ChevronRight, X, Loader2, AlertCircle } from "lucide-react";
 import { getBackendURL } from "../lib/auth-client";
 
@@ -205,7 +206,7 @@ const Problems = () => {
                 ) : paginatedProblems.length > 0 ? (
                     <div className="divide-y-4 divide-black">
                         {paginatedProblems.map((prob, idx) => (
-                            <div key={prob._id} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
+                            <Link key={prob._id} to={`/problems/${prob._id}`} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
                                 {/* Left Side: Index, Title, Tags */}
                                 <div className="flex-1 p-6 flex gap-6 items-start">
                                     <span className="text-2xl font-black text-red-200 group-hover:text-black transition-colors shrink-0">
@@ -230,7 +231,7 @@ const Problems = () => {
                                         {prob.difficulty}
                                     </span>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 ) : (

@@ -93,3 +93,20 @@ export const getApprovedProblems = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+// @desc    Get a single problem by ID
+// @route   GET /api/problem/:id
+// @access  Public
+export const getProblemById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const problem = await Problem.findById(id);
+        if (!problem) {
+            return res.status(404).json({ message: "Problem not found" });
+        }
+        res.json(problem);
+    } catch (error) {
+        console.error('Error fetching problem details:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};

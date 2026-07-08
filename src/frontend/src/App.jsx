@@ -12,6 +12,7 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import BecomeSetter from "./pages/BecomeSetter";
 import AddProblem from "./pages/AddProblem";
+import ProblemWorkspace from "./pages/ProblemWorkspace";
 import Navbar from "./components/Navbar";
 import Inbox from "./pages/Inbox";
 
@@ -47,6 +48,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Problems />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/problems/:id" 
+            element={
+              <ProtectedRoute>
+                <ProblemWorkspace />
               </ProtectedRoute>
             } 
           />
