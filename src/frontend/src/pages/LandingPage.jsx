@@ -1,23 +1,39 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useSession } from "../lib/auth-client";
-import { Target, Code2, Award, Zap } from "lucide-react";
+import { useSession, getBackendURL } from "../lib/auth-client";
+import { Target, Code2, Award, Zap, Loader2 } from "lucide-react";
 
 const LandingPage = () => {
   const { data: session, isPending } = useSession();
 
-  // Placeholder data for problems
-  const problems = [
-    { id: 1, title: "Two Sum", tags: ["Array", "Hash Table"], difficulty: "easy" },
-    { id: 2, title: "Longest Substring Without Repeating Characters", tags: ["String", "Sliding Window"], difficulty: "normal" },
-    { id: 3, title: "Median of Two Sorted Arrays", tags: ["Array", "Binary Search"], difficulty: "hard" },
-    { id: 4, title: "Longest Palindromic Substring", tags: ["String", "DP"], difficulty: "normal" },
-    { id: 5, title: "Reverse Integer", tags: ["Math"], difficulty: "easy" },
-    { id: 6, title: "String to Integer (atoi)", tags: ["String"], difficulty: "normal" },
-    { id: 7, title: "Palindrome Number", tags: ["Math"], difficulty: "easy" },
-    { id: 8, title: "Regular Expression Matching", tags: ["String", "DP", "Recursion"], difficulty: "hard" },
-    { id: 9, title: "Container With Most Water", tags: ["Array", "Two Pointers"], difficulty: "normal" },
-    { id: 10, title: "Integer to Roman", tags: ["Math", "String"], difficulty: "easy" },
-  ];
+  // State for live problems
+  const [problems, setProblems] = useState([]);
+  const [loadingProblems, setLoadingProblems] = useState(true);
+
+  // Fetch live approved problems
+  useEffect(() => {
+    const fetchProblems = async () => {
+      try {
+        setLoadingProblems(true);
+        const response = await fetch(`${getBackendURL()}/api/problem`, {
+          credentials: "include"
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // Filter to only render status: 'approved' and slice the top 4 most recently approved
+          const approved = data
+            .filter(p => p.status === "approved")
+            .slice(0, 10);
+          setProblems(approved);
+        }
+      } catch (err) {
+        console.error("Error loading landing page problems:", err);
+      } finally {
+        setLoadingProblems(false);
+      }
+    };
+    fetchProblems();
+  }, []);
 
   // Placeholder data for contests
   const contests = [
@@ -58,7 +74,7 @@ const LandingPage = () => {
         </p>
         {!session && (
           <div className="pt-4">
-            <Link to="/auth" className="btn bg-slate-900 text-white rounded-none btn-lg px-10 font-black uppercase neo-brutal neo-brutal-hover border-none">
+            <Link to="/auth" className="btn bg-slate-900 text-white rounded-none btn-lg px-10 font-black uppercase neo-brutal neo-brutal-hover border-none cursor-pointer">
               Get Started Now
             </Link>
           </div>
@@ -74,28 +90,40 @@ const LandingPage = () => {
             <div className="bg-sky-400 p-4 border-b-4 border-black">
               <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight">Featured Problems</h2>
             </div>
-            <div className="divide-y-2 divide-black">
-              {problems.map((prob) => (
-                <Link key={prob.id} to={getRedirectPath("#")} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
-                  <div className="space-y-1">
-                    <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic">{prob.title}</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {prob.tags.map(tag => (
-                        <span key={tag} className="badge rounded-none border-2 border-black font-black text-[10px] uppercase bg-white text-black">{tag}</span>
-                      ))}
+            
+            {loadingProblems ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="animate-spin text-black" size={32} />
+              </div>
+            ) : problems.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 font-black uppercase text-sm">
+                No featured problems found
+              </div>
+            ) : (
+              <div className="divide-y-2 divide-black">
+                {problems.map((prob) => (
+                  <Link key={prob._id} to={getRedirectPath("#")} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
+                    <div className="space-y-1">
+                      <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic text-black">{prob.title}</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {prob.tags?.map(tag => (
+                          <span key={tag} className="badge rounded-none border-2 border-black font-black text-[10px] uppercase bg-white text-black">{tag}</span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                    <div className="text-right">
-                      <span className={`font-black text-xl bg-white border-2 border-black px-2 shadow-[2px_2px_0px_0px_black] uppercase italic ${
-                        prob.difficulty === 'easy' ? 'text-emerald-500' : 
-                        prob.difficulty === 'normal' ? 'text-amber-500' : 'text-red-500'
-                      }`}>
-                        {prob.difficulty}
-                      </span>
-                    </div>
-                </Link>
-              ))}
-            </div>
+                      <div className="text-right">
+                        <span className={`font-black text-xl bg-white border-2 border-black px-2 shadow-[2px_2px_0px_0px_black] uppercase italic ${
+                          prob.difficulty.toLowerCase() === 'easy' ? 'text-emerald-500' : 
+                          prob.difficulty.toLowerCase() === 'medium' || prob.difficulty.toLowerCase() === 'normal' ? 'text-amber-500' : 'text-red-500'
+                        }`}>
+                          {prob.difficulty}
+                        </span>
+                      </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            
             <div className="p-4 text-center border-t-4 border-black bg-slate-50">
               <Link 
                 to={getRedirectPath("/problems")} 
@@ -119,7 +147,7 @@ const LandingPage = () => {
               {contests.map((contest) => (
                 <Link key={contest.id} to={getRedirectPath("#")} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
                   <div className="space-y-1">
-                    <h3 className="font-black text-md leading-tight uppercase italic">{contest.title}</h3>
+                    <h3 className="font-black text-md leading-tight uppercase italic text-black">{contest.title}</h3>
                     <p className="text-xs font-black opacity-60 uppercase">By {contest.host}</p>
                   </div>
                   <div className="text-right min-w-[100px]">
@@ -133,7 +161,7 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Growth Stats Card - Refined to match current structure */}
+          {/* Growth Stats Card */}
           <div className="bg-white neo-brutal rounded-none overflow-hidden">
             <div className="bg-amber-400 p-4 border-b-4 border-black">
               <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight text-center">Growth Stats</h2>
@@ -142,29 +170,29 @@ const LandingPage = () => {
               <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
                       <Code2 size={16} className="text-sky-500 mb-1" />
-                      <span className="text-xl font-black">{session ? dummyStats.solved : 0}</span>
+                      <span className="text-xl font-black text-black">{session ? dummyStats.solved : 0}</span>
                       <span className="text-[8px] font-black uppercase opacity-50">Solved</span>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
                       <Target size={16} className="text-emerald-500 mb-1" />
-                      <span className="text-xl font-black">{session ? dummyStats.successRate : "0%"}</span>
+                      <span className="text-xl font-black text-black">{session ? dummyStats.successRate : "0%"}</span>
                       <span className="text-[8px] font-black uppercase opacity-50">Success</span>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
                       <Award size={16} className="text-amber-500 mb-1" />
-                      <span className="text-xl font-black">{session ? dummyStats.rank : "#--"}</span>
+                      <span className="text-xl font-black text-black">{session ? dummyStats.rank : "#--"}</span>
                       <span className="text-[8px] font-black uppercase opacity-50">Rank</span>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
                       <Zap size={16} className="text-black mb-1" />
-                      <span className="text-xl font-black">{session ? dummyStats.points : 0}</span>
+                      <span className="text-xl font-black text-black">{session ? dummyStats.points : 0}</span>
                       <span className="text-[8px] font-black uppercase opacity-50">Points</span>
                   </div>
               </div>
               <div className="w-full bg-slate-200 h-4 border-2 border-black relative overflow-hidden">
                 <div className={`bg-emerald-400 h-full transition-all duration-500`} style={{ width: session ? '72.4%' : '0%' }}></div>
               </div>
-              <Link to={getRedirectPath("/growth")} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black">View Full Dashboard</Link>
+              <Link to={getRedirectPath("/growth")} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black cursor-pointer">View Full Dashboard</Link>
             </div>
           </div>
 

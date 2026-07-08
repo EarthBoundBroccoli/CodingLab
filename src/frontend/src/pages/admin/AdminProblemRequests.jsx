@@ -1,94 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { getBackendURL } from "../../lib/auth-client";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const PAGE_SIZE = 20;
-
-const baseTitles = [
-  "Two Sum",
-  "Valid Parentheses",
-  "Longest Substring Without Repeating Characters",
-  "Binary Tree Level Order Traversal",
-  "Merge Intervals",
-  "Kth Largest Element in an Array",
-  "Regular Expression Matching",
-  "Median of Two Sorted Arrays",
-  "Container With Most Water",
-  "3Sum",
-  "Letter Combinations of a Phone Number",
-  "Generate Parentheses",
-  "Combination Sum",
-  "Permutations",
-  "Jump Game",
-  "Rotate Image",
-  "Group Anagrams",
-  "Maximum Subarray",
-  "Spiral Matrix",
-  "Set Matrix Zeroes",
-  "Word Search",
-  "Longest Palindromic Substring",
-  "Unique Paths",
-  "Minimum Path Sum",
-  "Climbing Stairs",
-  "Edit Distance",
-  "Decode Ways",
-  "Word Break",
-  "House Robber",
-  "Coin Change",
-  "Longest Increasing Subsequence",
-  "Number of Islands",
-  "Course Schedule",
-  "Clone Graph",
-  "Pacific Atlantic Water Flow",
-  "Redundant Connection",
-  "Network Delay Time",
-  "Cheapest Flights Within K Stops",
-  "Alien Dictionary",
-  "Serialize and Deserialize Binary Tree",
-  "Lowest Common Ancestor",
-  "Binary Tree Maximum Path Sum",
-  "Validate Binary Search Tree",
-  "Kth Smallest Element in BST",
-  "Construct Binary Tree from Preorder and Inorder",
-  "Subsets",
-  "Word Search II",
-  "Palindrome Partitioning",
-  "N-Queens",
-  "Sudoku Solver",
-];
-
-const difficulties = ["Easy", "Medium", "Hard"];
-const statuses = ["Approved", "Pending", "Rejected"];
-
-const generateInitialRequests = () => {
-  const problems = [];
-
-  for (let i = 0; i < 120; i++) {
-    const baseTitle = baseTitles[i % baseTitles.length];
-    const suffix = i >= baseTitles.length ? ` #${Math.floor(i / baseTitles.length) + 1}` : "";
-    const difficulty = difficulties[i % difficulties.length];
-    const status = statuses[i % 3];
-
-    problems.push({
-      id: i + 1,
-      title: `${baseTitle}${suffix}`,
-      difficulty,
-      status,
-      description: `Given input for "${baseTitle}", solve the problem efficiently within the provided constraints.`,
-      examples: [
-        `Input: sample input for ${baseTitle} → Output: expected result`,
-        `Input: edge case for ${baseTitle} → Output: expected edge output`,
-      ],
-      constraints: [
-        "1 ≤ n ≤ 10^5",
-        "Values fit within standard integer limits",
-        "Time complexity should be optimal for the difficulty level",
-      ],
-    });
-  }
-
-  return problems;
-};
-
-const initialRequests = generateInitialRequests();
 
 const badgeForDifficulty = (difficulty) => {
   if (difficulty === "Easy") return "bg-emerald-300";
@@ -97,8 +11,8 @@ const badgeForDifficulty = (difficulty) => {
 };
 
 const badgeForStatus = (status) => {
-  if (status === "Approved") return "bg-emerald-400";
-  if (status === "Rejected") return "bg-error";
+  if (status.toLowerCase() === "approved") return "bg-emerald-400";
+  if (status.toLowerCase() === "rejected") return "bg-error";
   return "bg-sky-300";
 };
 
@@ -107,16 +21,16 @@ const ProblemTable = ({ rows, onView }) => (
     <table className="table table-zebra w-full border-t-4 border-black">
       <thead className="bg-emerald-400">
         <tr>
-          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest">
+          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
             Title
           </th>
-          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest">
+          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
             Difficulty
           </th>
-          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest">
+          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
             Status
           </th>
-          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-right">
+          <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-right text-black">
             Action
           </th>
         </tr>
@@ -130,8 +44,8 @@ const ProblemTable = ({ rows, onView }) => (
           </tr>
         ) : (
           rows.map((r) => (
-            <tr key={r.id} className="hover:bg-slate-100">
-              <td className="font-black uppercase">{r.title}</td>
+            <tr key={r._id} className="hover:bg-slate-100">
+              <td className="font-black uppercase text-black">{r.title}</td>
               <td>
                 <span
                   className={`badge rounded-none border-2 border-black font-black uppercase text-[10px] text-black ${badgeForDifficulty(
@@ -153,8 +67,8 @@ const ProblemTable = ({ rows, onView }) => (
               <td className="text-right">
                 <button
                   type="button"
-                  onClick={() => onView(r.id)}
-                  className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-emerald-400"
+                  onClick={() => onView(r._id)}
+                  className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-emerald-400 text-black cursor-pointer"
                 >
                   View Problem
                 </button>
@@ -183,14 +97,14 @@ const PaginationControls = ({
         : `Showing ${startIndex}-${endIndex} of ${totalItems} problems`}
     </p>
     <div className="flex items-center gap-3">
-      <span className="text-xs font-black uppercase tracking-wider">
+      <span className="text-xs font-black uppercase tracking-wider text-black">
         Page {totalPages === 0 ? 0 : currentPage} of {totalPages}
       </span>
       <button
         type="button"
         onClick={onPrevious}
         disabled={currentPage <= 1}
-        className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
+        className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-black cursor-pointer"
       >
         Previous
       </button>
@@ -198,7 +112,7 @@ const PaginationControls = ({
         type="button"
         onClick={onNext}
         disabled={currentPage >= totalPages || totalPages === 0}
-        className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
+        className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-black cursor-pointer"
       >
         Next
       </button>
@@ -207,22 +121,46 @@ const PaginationControls = ({
 );
 
 const AdminProblemRequests = () => {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [rejecting, setRejecting] = useState(false);
-  const [feedback, setFeedback] = useState("");
+
+  const fetchProblems = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${getBackendURL()}/api/problem`, {
+        credentials: "include"
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRequests(data);
+      } else {
+        setError("Failed to fetch problem requests");
+      }
+    } catch (err) {
+      console.error("Error fetching problem requests:", err);
+      setError("Error connecting to backend API");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProblems();
+  }, []);
 
   const approvedProblems = useMemo(
-    () => requests.filter((r) => r.status === "Approved"),
+    () => requests.filter((r) => r.status.toLowerCase() === "approved"),
     [requests]
   );
 
   const pendingRejectedProblems = useMemo(
-    () => requests.filter((r) => r.status === "Pending" || r.status === "Rejected"),
+    () => requests.filter((r) => r.status.toLowerCase() === "pending" || r.status.toLowerCase() === "rejected"),
     [requests]
   );
 
@@ -246,11 +184,11 @@ const AdminProblemRequests = () => {
   const endIndex = Math.min(safePage * PAGE_SIZE, filteredProblems.length);
 
   const selected = useMemo(
-    () => requests.find((r) => r.id === selectedId) || null,
+    () => requests.find((r) => r._id === selectedId) || null,
     [requests, selectedId]
   );
 
-  const showReviewActions = activeTab === "pending" && selected;
+  const showReviewActions = selected && selected.status.toLowerCase() === "pending";
 
   useEffect(() => {
     setCurrentPage(1);
@@ -269,42 +207,50 @@ const AdminProblemRequests = () => {
 
   const openModal = (id) => {
     setSelectedId(id);
-    setRejecting(false);
-    setFeedback("");
   };
 
   const closeModal = () => {
     setSelectedId(null);
-    setRejecting(false);
-    setFeedback("");
   };
 
-  const setStatus = (id, status) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  const updateStatusOnBackend = async (id, newStatus) => {
+    try {
+      const response = await fetch(`${getBackendURL()}/api/admin/problems/${id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": "admin123"
+        },
+        credentials: "include",
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        showToast(`Problem ${newStatus} successfully`);
+        // Update local state
+        setRequests(prev => prev.map(r => r._id === id ? { ...r, status: newStatus } : r));
+        closeModal();
+      } else {
+        showToast(`Failed to update problem status to ${newStatus}`);
+      }
+    } catch (err) {
+      console.error(`Error updating problem status:`, err);
+      showToast("Error connecting to server");
+    }
   };
 
   const handleApprove = () => {
     if (!selected) return;
-    setStatus(selected.id, "Approved");
-    showToast("Problem approved");
-    closeModal();
+    updateStatusOnBackend(selected._id, "approved");
   };
 
-  const handleRejectStart = () => {
-    setRejecting(true);
-    setFeedback("");
-  };
-
-  const handleRejectSubmit = (e) => {
-    e.preventDefault();
+  const handleRejectSubmit = () => {
     if (!selected) return;
-    setStatus(selected.id, "Rejected");
-    showToast("Feedback sent successfully");
-    closeModal();
+    updateStatusOnBackend(selected._id, "rejected");
   };
 
   const tabClass = (tab) =>
-    `flex-1 py-3 px-4 font-black uppercase text-xs sm:text-sm border-4 border-black transition-colors ${
+    `flex-1 py-3 px-4 font-black uppercase text-xs sm:text-sm border-4 border-black transition-colors cursor-pointer ${
       activeTab === tab
         ? "bg-emerald-400 text-black shadow-[3px_3px_0px_0px_black]"
         : "bg-white text-black hover:bg-slate-100"
@@ -351,150 +297,156 @@ const AdminProblemRequests = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by title..."
-            className="w-full p-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100"
+            className="w-full p-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100 text-black"
           />
         </div>
 
-        <ProblemTable rows={paginatedProblems} onView={openModal} />
+        {loading ? (
+          <div className="flex items-center justify-center p-20">
+            <Loader2 className="animate-spin text-black" size={48} />
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center text-error font-black uppercase flex flex-col items-center justify-center gap-2">
+            <AlertCircle size={48} />
+            {error}
+          </div>
+        ) : (
+          <>
+            <ProblemTable rows={paginatedProblems} onView={openModal} />
 
-        <PaginationControls
-          currentPage={safePage}
-          totalPages={totalPages}
-          totalItems={filteredProblems.length}
-          startIndex={startIndex}
-          endIndex={endIndex}
-          onPrevious={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-        />
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={filteredProblems.length}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              onPrevious={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            />
+          </>
+        )}
       </div>
 
+      {/* Review / Audit Modal */}
       {selected && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white neo-brutal w-full max-w-3xl max-h-[85svh] overflow-hidden flex flex-col">
-            <div className="bg-sky-400 p-4 border-b-4 border-black flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="text-xl lg:text-2xl font-black uppercase font-spartan tracking-tight text-black truncate">
-                  {selected.title}
-                </h2>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span
-                    className={`badge rounded-none border-2 border-black font-black uppercase text-[10px] text-black ${badgeForDifficulty(
-                      selected.difficulty
-                    )}`}
-                  >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white border-4 border-black neo-brutal w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-4 border-b-4 border-black flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black uppercase font-spartan tracking-tight">
+                  Review: {selected.title}
+                </h3>
+                <div className="flex gap-2 mt-1">
+                  <span className={`badge rounded-none border-2 border-black font-black uppercase text-[10px] text-black ${badgeForDifficulty(selected.difficulty)}`}>
                     {selected.difficulty}
                   </span>
-                  <span
-                    className={`badge rounded-none border-2 border-black font-black uppercase text-[10px] text-black ${badgeForStatus(
-                      selected.status
-                    )}`}
-                  >
+                  <span className={`badge rounded-none border-2 border-black font-black uppercase text-[10px] text-black ${badgeForStatus(selected.status)}`}>
                     {selected.status}
                   </span>
                 </div>
               </div>
               <button
-                type="button"
                 onClick={closeModal}
-                className="px-3 py-2 border-2 border-black bg-white font-black uppercase text-xs hover:bg-slate-100"
+                className="p-1 border-2 border-black bg-white text-black hover:bg-rose-300 transition-colors cursor-pointer"
               >
-                Close
+                <span className="font-bold text-xs uppercase px-1">Close</span>
               </button>
             </div>
 
-            <div className="p-6 overflow-auto space-y-6">
-              <section className="space-y-2">
-                <h3 className="text-xs font-black uppercase tracking-widest">
-                  Description
-                </h3>
-                <div className="bg-white border-4 border-black p-4 font-bold text-sm leading-relaxed">
-                  {selected.description}
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              <div>
+                <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Problem Statement</h4>
+                <div className="p-3 bg-slate-50 border-2 border-black text-sm whitespace-pre-wrap font-medium text-slate-800">
+                  {selected.statement}
                 </div>
-              </section>
+              </div>
 
-              <section className="space-y-2">
-                <h3 className="text-xs font-black uppercase tracking-widest">
-                  Examples
-                </h3>
-                <div className="bg-slate-50 border-4 border-black p-4 space-y-2">
-                  {selected.examples.map((ex, idx) => (
-                    <div
-                      key={idx}
-                      className="font-mono text-xs bg-white border-2 border-black p-3"
-                    >
-                      {ex}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Input Format</h4>
+                  <p className="text-xs font-bold text-slate-700">{selected.inputFormat}</p>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Output Format</h4>
+                  <p className="text-xs font-bold text-slate-700">{selected.outputFormat}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Time Limit</h4>
+                  <p className="text-xs font-black text-black">{selected.timeLimit} ms</p>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Memory Limit</h4>
+                  <p className="text-xs font-black text-black">{selected.memoryLimit} MB</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Sample Cases</h4>
+                <div className="space-y-2">
+                  {selected.samples?.map((sample, idx) => (
+                    <div key={idx} className="border-2 border-black p-3 bg-slate-50 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="font-black block uppercase text-[8px] text-slate-400">Sample Input</span>
+                        <pre className="font-mono bg-white p-1.5 border border-slate-300 mt-1 text-slate-800">{sample.input}</pre>
+                      </div>
+                      <div>
+                        <span className="font-black block uppercase text-[8px] text-slate-400">Sample Output</span>
+                        <pre className="font-mono bg-white p-1.5 border border-slate-300 mt-1 text-slate-800">{sample.output}</pre>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </section>
+              </div>
 
-              <section className="space-y-2">
-                <h3 className="text-xs font-black uppercase tracking-widest">
-                  Constraints
-                </h3>
-                <div className="bg-white border-4 border-black p-4">
-                  <ul className="list-disc pl-5 space-y-1">
-                    {selected.constraints.map((c, idx) => (
-                      <li key={idx} className="font-bold text-sm">
-                        {c}
-                      </li>
-                    ))}
-                  </ul>
+              {/* Hidden Data Audit */}
+              <div className="border-t-4 border-dashed border-black pt-4 space-y-3">
+                <h4 className="text-[11px] font-black uppercase text-rose-500 tracking-wider">
+                  ⚠️ Audit Hidden Test Cases (Cloudinary Assets / Files)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 bg-rose-50 border-2 border-black">
+                    <span className="text-[9px] font-black uppercase text-rose-700 block">Hidden Input Asset</span>
+                    <p className="font-mono text-[10px] font-bold text-slate-800 break-all mt-1 bg-white p-1.5 border border-rose-300">
+                      {selected.hiddenInput}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-rose-50 border-2 border-black">
+                    <span className="text-[9px] font-black uppercase text-rose-700 block">Hidden Output Asset</span>
+                    <p className="font-mono text-[10px] font-bold text-slate-800 break-all mt-1 bg-white p-1.5 border border-rose-300">
+                      {selected.hiddenOutput}
+                    </p>
+                  </div>
                 </div>
-              </section>
+              </div>
+            </div>
 
+            {/* Modal Footer / Review Actions */}
+            <div className="p-4 bg-slate-50 border-t-4 border-black flex justify-end gap-2">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 border-2 border-black bg-white font-black uppercase text-xs hover:bg-slate-100 cursor-pointer text-black"
+              >
+                Close Audit
+              </button>
               {showReviewActions && (
                 <>
-                  {!rejecting ? (
-                    <div className="flex flex-col sm:flex-row gap-3 justify-end">
-                      {selected.status === "Pending" && (
-                        <button
-                          type="button"
-                          onClick={handleRejectStart}
-                          className="px-4 py-3 border-4 border-black bg-white font-black uppercase text-sm shadow-[3px_3px_0px_0px_black] hover:bg-rose-200"
-                        >
-                          Reject
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleApprove}
-                        className="px-4 py-3 border-4 border-black bg-slate-900 text-white font-black uppercase text-sm shadow-[3px_3px_0px_0px_black] hover:bg-emerald-400 hover:text-black"
-                      >
-                        Approve
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleRejectSubmit} className="space-y-3">
-                      <div className="space-y-2">
-                        <label className="text-xs font-black uppercase tracking-widest">
-                          Feedback message
-                        </label>
-                        <textarea
-                          className="w-full min-h-28 p-3 border-4 border-black font-bold text-sm outline-none rounded-none focus:bg-rose-100"
-                          value={feedback}
-                          onChange={(e) => setFeedback(e.target.value)}
-                          required
-                          placeholder="Explain why this request is rejected..."
-                        />
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-3 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setRejecting(false)}
-                          className="px-4 py-3 border-4 border-black bg-white font-black uppercase text-sm shadow-[3px_3px_0px_0px_black] hover:bg-slate-100"
-                        >
-                          Back
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-4 py-3 border-4 border-black bg-slate-900 text-white font-black uppercase text-sm shadow-[3px_3px_0px_0px_black] hover:bg-error hover:text-black"
-                        >
-                          Send Feedback
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                  <button
+                    onClick={handleRejectSubmit}
+                    className="px-4 py-2 border-2 border-black bg-rose-300 font-black uppercase text-xs hover:bg-rose-200 cursor-pointer text-black"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    className="px-4 py-2 border-2 border-black bg-emerald-400 font-black uppercase text-xs hover:bg-emerald-300 cursor-pointer text-black"
+                  >
+                    Approve
+                  </button>
                 </>
               )}
             </div>

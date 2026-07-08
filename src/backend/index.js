@@ -53,6 +53,7 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 // Mount routes
 app.use("/api/setter", setterRoutes);
 app.use("/api/problem", problemRoutes);
+app.use("/api/problems", problemRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 

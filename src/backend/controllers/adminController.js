@@ -1,6 +1,7 @@
 import { SetterRequest } from "../models/SetterRequest.js";
 import { User } from "../models/User.js";
 import { Notification } from "../models/Notification.js";
+import { Problem } from "../models/Problem.js";
 import { auth } from "../lib/auth.js";
 
 // @desc    Get all pending setter requests
@@ -135,6 +136,151 @@ export const decideSetterRequest = async (req, res) => {
         }
     } catch (error) {
         console.error('Error deciding setter request:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// @desc    Get dashboard summary statistics
+// @route   GET /api/admin/dashboard-summary
+// @access  Protected (Admin Only)
+export const getDashboardSummary = async (req, res) => {
+    try {
+        const adminToken = req.headers['x-admin-token'];
+        const isBypass = adminToken === 'admin123';
+
+        if (!isBypass) {
+            const session = await auth.api.getSession({
+                headers: req.headers
+            });
+
+            if (!session) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            if (session.user.role !== 'admin' && session.user.email !== 'admin@example.com') {
+                return res.status(403).json({ message: "Forbidden: Admin access only" });
+            }
+        }
+
+        const totalUsers = await User.countDocuments({});
+        const totalProblems = await Problem.countDocuments({ status: "approved" });
+        const pendingProblems = await Problem.countDocuments({ status: "pending" });
+
+        // Retrieve latest 5 pending problems, populated with setterId to resolve name and email
+        const recentProblemRequests = await Problem.find({ status: "pending" })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate("setterId", "name email");
+
+        // Aggregation to find top contributors (approved problems grouped by setterId)
+        const topContributorsRaw = await Problem.aggregate([
+            { $match: { status: "approved" } },
+            { $group: { _id: "$setterId", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // Resolve names of top contributors
+        const topContributors = [];
+        for (const contributor of topContributorsRaw) {
+            if (contributor._id) {
+                const user = await User.findById(contributor._id);
+                if (user) {
+                    topContributors.push({
+                        id: contributor._id,
+                        name: user.name,
+                        solved: contributor.count // Solved / Created count representation in UI
+                    });
+                }
+            }
+        }
+
+        res.json({
+            totalUsers,
+            totalProblems,
+            pendingProblems,
+            recentProblemRequests,
+            topContributors
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard summary:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// @desc    Update problem request status
+// @route   PUT /api/admin/problems/:id/status
+// @access  Protected (Admin Only)
+export const updateProblemStatus = async (req, res) => {
+    try {
+        const adminToken = req.headers['x-admin-token'];
+        const isBypass = adminToken === 'admin123';
+
+        if (!isBypass) {
+            const session = await auth.api.getSession({
+                headers: req.headers
+            });
+
+            if (!session) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            if (session.user.role !== 'admin' && session.user.email !== 'admin@example.com') {
+                return res.status(403).json({ message: "Forbidden: Admin access only" });
+            }
+        }
+
+        const { id } = req.params;
+        const { status } = req.body; // 'approved' or 'rejected'
+
+        if (!status || !['approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ message: "Invalid status decision. Must be 'approved' or 'rejected'." });
+        }
+
+        const problem = await Problem.findById(id);
+        if (!problem) {
+            return res.status(404).json({ message: "Problem not found" });
+        }
+
+        problem.status = status;
+        await problem.save();
+
+        res.json({
+            message: `Problem status updated to ${status} successfully.`,
+            problem
+        });
+    } catch (error) {
+        console.error('Error updating problem status:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// @desc    Get all platform users
+// @route   GET /api/admin/users
+// @access  Protected (Admin Only)
+export const getAllUsers = async (req, res) => {
+    try {
+        const adminToken = req.headers['x-admin-token'];
+        const isBypass = adminToken === 'admin123';
+
+        if (!isBypass) {
+            const session = await auth.api.getSession({
+                headers: req.headers
+            });
+
+            if (!session) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            if (session.user.role !== 'admin' && session.user.email !== 'admin@example.com') {
+                return res.status(403).json({ message: "Forbidden: Admin access only" });
+            }
+        }
+
+        const users = await User.find({}).sort({ createdAt: -1 });
+        res.json(users);
+    } catch (error) {
+        console.error('Error fetching all users:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 };

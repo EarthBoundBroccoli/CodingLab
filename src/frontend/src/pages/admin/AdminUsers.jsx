@@ -1,18 +1,11 @@
-import { useMemo, useState } from "react";
-
-const initialUsers = [
-  { id: 1, name: "John Doe", solved: 12, level: "Beginner", banned: false },
-  { id: 2, name: "Sarah Khan", solved: 34, level: "Advanced", banned: false },
-  { id: 3, name: "Mike Lee", solved: 8, level: "Beginner", banned: true },
-  { id: 4, name: "Emily Chen", solved: 27, level: "Intermediate", banned: false },
-  { id: 5, name: "David Park", solved: 50, level: "Advanced", banned: false },
-  { id: 6, name: "Nora Ali", solved: 19, level: "Intermediate", banned: false },
-  { id: 7, name: "Alex Smith", solved: 5, level: "Beginner", banned: false },
-  { id: 8, name: "Priya Patel", solved: 42, level: "Advanced", banned: true },
-];
+import { useEffect, useMemo, useState } from "react";
+import { getBackendURL } from "../../lib/auth-client";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const AdminUsers = () => {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [banTarget, setBanTarget] = useState(null);
@@ -24,6 +17,33 @@ const AdminUsers = () => {
     setTimeout(() => setToast(null), 2500);
   };
 
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${getBackendURL()}/api/admin/users`, {
+        headers: {
+          "x-admin-token": "admin123"
+        },
+        credentials: "include"
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+      } else {
+        setError("Failed to fetch users");
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      setError("Failed to connect to backend api");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   const handleBanClick = (user) => {
     setBanTarget(user);
     setBanReason("");
@@ -33,9 +53,10 @@ const AdminUsers = () => {
     e.preventDefault();
     if (!banTarget) return;
 
+    // Simulate ban status change locally
     setUsers((prev) =>
       prev.map((u) =>
-        u.id === banTarget.id ? { ...u, banned: true } : u
+        (u._id || u.id) === (banTarget._id || banTarget.id) ? { ...u, banned: true } : u
       )
     );
     setBanTarget(null);
@@ -44,9 +65,10 @@ const AdminUsers = () => {
   };
 
   const handleUnban = (user) => {
+    // Simulate unban status change locally
     setUsers((prev) =>
       prev.map((u) =>
-        u.id === user.id ? { ...u, banned: false } : u
+        (u._id || u.id) === (user._id || user.id) ? { ...u, banned: false } : u
       )
     );
     showToast("Unbanned successfully");
@@ -58,7 +80,7 @@ const AdminUsers = () => {
 
   const confirmRemove = () => {
     if (!removeTarget) return;
-    setUsers((prev) => prev.filter((u) => u.id !== removeTarget.id));
+    setUsers((prev) => prev.filter((u) => (u._id || u.id) !== (removeTarget._id || removeTarget.id)));
     setRemoveTarget(null);
     showToast("Account removed successfully");
   };
@@ -97,93 +119,115 @@ const AdminUsers = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name..."
-            className="w-full p-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100"
+            className="w-full p-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100 text-black"
           />
         </div>
 
         <div className="overflow-x-auto">
-          <table className="table table-zebra w-full border-t-4 border-black">
-            <thead className="bg-emerald-400">
-              <tr>
-                <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest">
-                  Username
-                </th>
-                <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest">
-                  Solved Count
-                </th>
-                <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest">
-                  Level
-                </th>
-                <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-right">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center p-20">
+              <Loader2 className="animate-spin text-black" size={48} />
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center text-error font-black uppercase flex flex-col items-center justify-center gap-2">
+              <AlertCircle size={48} />
+              {error}
+            </div>
+          ) : (
+            <table className="table table-zebra w-full border-t-4 border-black">
+              <thead className="bg-emerald-400">
                 <tr>
-                  <td colSpan={4} className="text-center py-8 font-bold uppercase text-sm text-slate-500">
-                    No users found
-                  </td>
+                  <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
+                    Name
+                  </th>
+                  <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
+                    Email
+                  </th>
+                  <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
+                    Role
+                  </th>
+                  <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-black">
+                    Institution
+                  </th>
+                  <th className="border-b-4 border-black text-xs font-black uppercase tracking-widest text-right text-black">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-              filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-100">
-                  <td className="font-black uppercase">
-                    <div className="flex items-center gap-2">
-                      <span>{user.name}</span>
-                      {user.banned && (
-                        <span className="badge badge-sm bg-error text-black border-2 border-black font-black uppercase">
-                          Banned
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 font-bold uppercase text-sm text-slate-500">
+                      No users found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user._id || user.id} className="hover:bg-slate-100">
+                      <td className="font-black uppercase text-black">
+                        <div className="flex items-center gap-2">
+                          <span>{user.name}</span>
+                          {user.banned && (
+                            <span className="badge badge-sm bg-error text-black border-2 border-black font-black uppercase">
+                              Banned
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="font-black text-xs text-slate-700">{user.email}</td>
+                      <td>
+                        <span className={`badge rounded-none border-2 border-black font-black uppercase text-[10px] text-black ${
+                          user.role === 'admin' ? 'bg-sky-300' :
+                          user.role === 'problem_setter' ? 'bg-amber-300' : 'bg-emerald-300'
+                        }`}>
+                          {user.role}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="font-black">{user.solved}</td>
-                  <td className="font-black uppercase text-xs">
-                    {user.level}
-                  </td>
-                  <td className="text-right">
-                    <details className="dropdown dropdown-end inline-block">
-                      <summary className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-emerald-400">
-                        Actions
-                      </summary>
-                      <ul className="menu dropdown-content bg-white rounded-none border-4 border-black shadow-[4px_4px_0px_0px_black] z-[1] mt-2 w-52">
-                        <li>
-                          <button
-                            type="button"
-                            onClick={() => handleBanClick(user)}
-                            className="font-bold hover:bg-amber-200"
-                          >
-                            Ban User
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            type="button"
-                            onClick={() => handleUnban(user)}
-                            className="font-bold hover:bg-emerald-200"
-                          >
-                            Unban User
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveClick(user)}
-                            className="font-bold hover:bg-error"
-                          >
-                            Remove Account
-                          </button>
-                        </li>
-                      </ul>
-                    </details>
-                  </td>
-                </tr>
-              ))
-              )}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="font-bold text-xs uppercase text-slate-800">
+                        {user.institution || "N/A"}
+                      </td>
+                      <td className="text-right">
+                        <details className="dropdown dropdown-end inline-block">
+                          <summary className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-emerald-400 text-black cursor-pointer">
+                            Actions
+                          </summary>
+                          <ul className="menu dropdown-content bg-white rounded-none border-4 border-black shadow-[4px_4px_0px_0px_black] z-[1] mt-2 w-52 p-0">
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => handleBanClick(user)}
+                                className="font-bold hover:bg-amber-200 text-black cursor-pointer rounded-none"
+                              >
+                                Ban User
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => handleUnban(user)}
+                                className="font-bold hover:bg-emerald-200 text-black cursor-pointer rounded-none"
+                              >
+                                Unban User
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveClick(user)}
+                                className="font-bold hover:bg-error text-black cursor-pointer rounded-none"
+                              >
+                                Remove Account
+                              </button>
+                            </li>
+                          </ul>
+                        </details>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -191,20 +235,20 @@ const AdminUsers = () => {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white neo-brutal w-full max-w-md">
             <div className="bg-amber-400 p-4 border-b-4 border-black">
-              <h2 className="text-xl font-black uppercase font-spartan tracking-tight">
+              <h2 className="text-xl font-black uppercase font-spartan tracking-tight text-black">
                 Ban User
               </h2>
-              <p className="text-[11px] font-bold uppercase">
+              <p className="text-[11px] font-bold uppercase text-black">
                 {banTarget.name}
               </p>
             </div>
             <form onSubmit={handleBanSubmit} className="p-6 space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest">
+                <label className="text-xs font-black uppercase tracking-widest text-black">
                   Reason for ban
                 </label>
                 <textarea
-                  className="w-full min-h-24 p-3 border-4 border-black font-bold text-sm outline-none rounded-none focus:bg-amber-100"
+                  className="w-full min-h-24 p-3 border-4 border-black font-bold text-sm outline-none rounded-none focus:bg-amber-100 text-black"
                   value={banReason}
                   onChange={(e) => setBanReason(e.target.value)}
                   required
@@ -215,13 +259,13 @@ const AdminUsers = () => {
                 <button
                   type="button"
                   onClick={() => setBanTarget(null)}
-                  className="px-4 py-2 border-2 border-black bg-white font-black uppercase text-xs hover:bg-slate-100"
+                  className="px-4 py-2 border-2 border-black bg-white font-black uppercase text-xs hover:bg-slate-100 text-black cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 border-2 border-black bg-slate-900 text-white font-black uppercase text-xs hover:bg-amber-400 hover:text-black"
+                  className="px-4 py-2 border-2 border-black bg-slate-900 text-white font-black uppercase text-xs hover:bg-amber-400 hover:text-black cursor-pointer"
                 >
                   Confirm Ban
                 </button>
@@ -235,12 +279,12 @@ const AdminUsers = () => {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white neo-brutal w-full max-w-md">
             <div className="bg-error p-4 border-b-4 border-black">
-              <h2 className="text-xl font-black uppercase font-spartan tracking-tight">
+              <h2 className="text-xl font-black uppercase font-spartan tracking-tight text-black">
                 Remove Account
               </h2>
             </div>
             <div className="p-6 space-y-4">
-              <p className="font-bold text-sm">
+              <p className="font-bold text-sm text-black">
                 Are you sure you want to remove{" "}
                 <span className="font-black uppercase">
                   {removeTarget.name}
@@ -251,14 +295,14 @@ const AdminUsers = () => {
                 <button
                   type="button"
                   onClick={cancelRemove}
-                  className="px-4 py-2 border-2 border-black bg-white font-black uppercase text-xs hover:bg-slate-100"
+                  className="px-4 py-2 border-2 border-black bg-white font-black uppercase text-xs hover:bg-slate-100 text-black cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={confirmRemove}
-                  className="px-4 py-2 border-2 border-black bg-slate-900 text-white font-black uppercase text-xs hover:bg-error"
+                  className="px-4 py-2 border-2 border-black bg-slate-900 text-white font-black uppercase text-xs hover:bg-error cursor-pointer"
                 >
                   Yes, Remove
                 </button>

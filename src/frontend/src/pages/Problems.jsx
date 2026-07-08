@@ -1,7 +1,13 @@
-import { useState, useMemo } from "react";
-import { Search, Filter, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, Filter, ChevronLeft, ChevronRight, X, Loader2, AlertCircle } from "lucide-react";
+import { getBackendURL } from "../lib/auth-client";
 
 const Problems = () => {
+    // State for live problems
+    const [problems, setProblems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
     // State for Search and Filter Visibility
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilters, setShowFilters] = useState(false);
@@ -10,36 +16,56 @@ const Problems = () => {
     const [activeDifficulty, setActiveDifficulty] = useState(null);
     const [activeTags, setActiveTags] = useState([]); // Multiple tags
     const [sortOrder, setSortOrder] = useState(null); // 'asc' or 'desc'
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 20;
 
-    // Placeholder data for 20 problems with varied titles and tags
-    const allProblems = useMemo(() => [
-        { id: 1, title: "Two Sum", tags: ["Array", "Hash Table"], difficulty: "easy" },
-        { id: 2, title: "Longest Substring", tags: ["String", "Sliding Window"], difficulty: "medium" },
-        { id: 3, title: "Median Array", tags: ["Array", "Binary Search"], difficulty: "hard" },
-        { id: 4, title: "Palindrome Number", tags: ["Math"], difficulty: "easy" },
-        { id: 5, title: "Regular Expression", tags: ["String", "DP"], difficulty: "hard" },
-        { id: 6, title: "Container Water", tags: ["Array", "Two Pointers"], difficulty: "medium" },
-        { id: 7, title: "Integer to Roman", tags: ["Math", "String"], difficulty: "medium" },
-        { id: 8, title: "Roman to Integer", tags: ["Math", "String"], difficulty: "easy" },
-        { id: 9, title: "Longest Common Prefix", tags: ["String"], difficulty: "easy" },
-        { id: 10, title: "3Sum", tags: ["Array", "Two Pointers"], difficulty: "medium" },
-        { id: 11, title: "3Sum Closest", tags: ["Array", "Two Pointers"], difficulty: "medium" },
-        { id: 12, title: "Letter Combinations", tags: ["String", "Backtracking"], difficulty: "medium" },
-        { id: 13, title: "4Sum", tags: ["Array", "Two Pointers"], difficulty: "medium" },
-        { id: 14, title: "Remove Nth Node", tags: ["Linked List", "Two Pointers"], difficulty: "medium" },
-        { id: 15, title: "Valid Parentheses", tags: ["String", "Stack"], difficulty: "easy" },
-        { id: 16, title: "Merge Two Lists", tags: ["Linked List"], difficulty: "easy" },
-        { id: 17, title: "Generate Parentheses", tags: ["String", "Backtracking"], difficulty: "medium" },
-        { id: 18, title: "Merge k Sorted Lists", tags: ["Linked List", "Heap"], difficulty: "hard" },
-        { id: 19, title: "Swap Nodes in Pairs", tags: ["Linked List"], difficulty: "medium" },
-        { id: 20, title: "Reverse Nodes in k-Group", tags: ["Linked List"], difficulty: "hard" },
-    ], []);
+    // Fetch approved problems from backend
+    useEffect(() => {
+        const fetchProblems = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch(`${getBackendURL()}/api/problem`, {
+                    credentials: "include"
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    // Filter to only render status: 'approved'
+                    const approved = data.filter(p => p.status === "approved");
+                    setProblems(approved);
+                } else {
+                    setError("Failed to fetch problems from database");
+                }
+            } catch (err) {
+                console.error("Error loading problems:", err);
+                setError("Failed to connect to backend server");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProblems();
+    }, []);
+
+    // Extract tags dynamically from the live dataset
+    const availableTags = useMemo(() => {
+        const tagSet = new Set();
+        problems.forEach(prob => {
+            if (Array.isArray(prob.tags)) {
+                prob.tags.forEach(tag => tagSet.add(tag));
+            }
+        });
+        return Array.from(tagSet).sort();
+    }, [problems]);
+
+    // Reset pagination to page 1 whenever filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeDifficulty, activeTags, sortOrder]);
 
     // Filtered and Sorted Logic
     const filteredProblems = useMemo(() => {
-        let result = allProblems.filter((prob) => {
+        let result = problems.filter((prob) => {
             const matchesSearch = prob.title.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesDifficulty = !activeDifficulty || prob.difficulty === activeDifficulty;
+            const matchesDifficulty = !activeDifficulty || prob.difficulty.toLowerCase() === activeDifficulty.toLowerCase();
             // Must match ALL selected tags
             const matchesTags = activeTags.length === 0 || activeTags.every(tag => prob.tags.includes(tag));
             return matchesSearch && matchesDifficulty && matchesTags;
@@ -52,7 +78,15 @@ const Problems = () => {
         }
 
         return result;
-    }, [searchTerm, activeDifficulty, activeTags, sortOrder, allProblems]);
+    }, [searchTerm, activeDifficulty, activeTags, sortOrder, problems]);
+
+    // Paginated list
+    const paginatedProblems = useMemo(() => {
+        const startIndex = (currentPage - 1) * PAGE_SIZE;
+        return filteredProblems.slice(startIndex, startIndex + PAGE_SIZE);
+    }, [filteredProblems, currentPage]);
+
+    const totalPages = Math.ceil(filteredProblems.length / PAGE_SIZE) || 1;
 
     const toggleTag = (tag) => {
         setActiveTags(prev => 
@@ -82,7 +116,7 @@ const Problems = () => {
                         />
                     </div>
                     <button 
-                        className={`btn rounded-none border-4 border-black p-3 transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none ${showFilters ? 'bg-black text-white' : 'bg-white text-black hover:bg-emerald-400'}`}
+                        className={`btn rounded-none border-4 border-black p-3 transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none ${showFilters ? 'bg-black text-white hover:bg-black' : 'bg-white text-black hover:bg-emerald-400'} cursor-pointer`}
                         onClick={() => setShowFilters(!showFilters)}
                     >
                         {showFilters ? <X size={24} /> : <Filter size={24} />}
@@ -97,11 +131,11 @@ const Problems = () => {
                             <div className="space-y-6">
                                 <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-2 text-lg">Difficulty</h4>
                                 <div className="flex flex-col gap-3">
-                                    {["easy", "medium", "hard"].map(diff => (
+                                    {["Easy", "Medium", "Hard"].map(diff => (
                                         <button 
                                             key={diff}
                                             onClick={() => setActiveDifficulty(activeDifficulty === diff ? null : diff)}
-                                            className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors ${activeDifficulty === diff ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
+                                            className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors cursor-pointer ${activeDifficulty === diff ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
                                         >
                                             {diff}
                                         </button>
@@ -113,15 +147,19 @@ const Problems = () => {
                             <div className="space-y-6">
                                 <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-2 text-lg">Tags</h4>
                                 <div className="flex flex-col gap-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {["Array", "String", "Math", "DP", "Linked List", "Hash Table", "Binary Search", "Two Pointers"].map(tag => (
-                                        <button 
-                                            key={tag}
-                                            onClick={() => toggleTag(tag)}
-                                            className={`text-left font-bold uppercase text-[11px] p-3 border-2 border-black transition-colors ${activeTags.includes(tag) ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
-                                        >
-                                            {tag}
-                                        </button>
-                                    ))}
+                                    {availableTags.length === 0 ? (
+                                        <p className="text-xs font-bold text-slate-400 uppercase italic">No tags available</p>
+                                    ) : (
+                                        availableTags.map(tag => (
+                                            <button 
+                                                key={tag}
+                                                onClick={() => toggleTag(tag)}
+                                                className={`text-left font-bold uppercase text-[11px] p-3 border-2 border-black transition-colors cursor-pointer ${activeTags.includes(tag) ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        ))
+                                    )}
                                 </div>
                             </div>
 
@@ -131,13 +169,13 @@ const Problems = () => {
                                 <div className="flex flex-col gap-3">
                                     <button 
                                         onClick={() => setSortOrder(sortOrder === 'asc' ? null : 'asc')}
-                                        className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors ${sortOrder === 'asc' ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
+                                        className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors cursor-pointer ${sortOrder === 'asc' ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
                                     >
                                         Sort Ascending
                                     </button>
                                     <button 
                                         onClick={() => setSortOrder(sortOrder === 'desc' ? null : 'desc')}
-                                        className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors ${sortOrder === 'desc' ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
+                                        className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors cursor-pointer ${sortOrder === 'desc' ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
                                     >
                                         Sort Descending
                                     </button>
@@ -146,27 +184,38 @@ const Problems = () => {
                         </div>
 
                         <div className="mt-12 pt-6 border-t-4 border-black flex justify-between items-center">
-                            <button onClick={resetFilters} className="text-sm font-black uppercase underline hover:text-red-500 transition-colors">Clear All Filters</button>
+                            <button onClick={resetFilters} className="text-sm font-black uppercase underline hover:text-red-500 transition-colors cursor-pointer">Clear All Filters</button>
                             <span className="text-xs font-black uppercase opacity-50">{filteredProblems.length} results found</span>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Problems List Container - The Red Box */}
+            {/* Problems List Container */}
             <div className="bg-red-50/20 border-[6px] border-red-500 rounded-none overflow-hidden neo-brutal min-h-[400px]">
-                {filteredProblems.length > 0 ? (
+                {loading ? (
+                    <div className="flex items-center justify-center p-20">
+                        <Loader2 className="animate-spin text-black" size={48} />
+                    </div>
+                ) : error ? (
+                    <div className="p-8 text-center text-error font-black uppercase flex flex-col items-center justify-center gap-2">
+                        <AlertCircle size={48} />
+                        {error}
+                    </div>
+                ) : paginatedProblems.length > 0 ? (
                     <div className="divide-y-4 divide-black">
-                        {filteredProblems.map((prob) => (
-                            <div key={prob.id} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
+                        {paginatedProblems.map((prob, idx) => (
+                            <div key={prob._id} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
                                 {/* Left Side: Index, Title, Tags */}
                                 <div className="flex-1 p-6 flex gap-6 items-start">
-                                    <span className="text-2xl font-black text-red-200 group-hover:text-black transition-colors shrink-0">#{prob.id}</span>
+                                    <span className="text-2xl font-black text-red-200 group-hover:text-black transition-colors shrink-0">
+                                        #{ (currentPage - 1) * PAGE_SIZE + idx + 1 }
+                                    </span>
                                     <div className="space-y-2">
-                                        <h3 className="text-2xl font-black uppercase italic group-hover:text-black transition-colors">{prob.title}</h3>
+                                        <h3 className="text-2xl font-black uppercase italic group-hover:text-black transition-colors text-black">{prob.title}</h3>
                                         <div className="flex flex-wrap gap-2">
-                                            {prob.tags.map(tag => (
-                                                <span key={tag} className="px-3 py-1 border-2 border-black font-black text-xs uppercase bg-white">{tag}</span>
+                                            {prob.tags?.map(tag => (
+                                                <span key={tag} className="px-3 py-1 border-2 border-black font-black text-xs uppercase bg-white text-black">{tag}</span>
                                             ))}
                                         </div>
                                     </div>
@@ -175,8 +224,8 @@ const Problems = () => {
                                 {/* Right Side: Difficulty */}
                                 <div className="w-full md:w-64 border-t-4 md:border-t-0 md:border-l-4 border-black flex items-center justify-center p-6 bg-white/50">
                                     <span className={`text-xl font-black uppercase italic ${
-                                        prob.difficulty === 'easy' ? 'text-emerald-500' : 
-                                        prob.difficulty === 'medium' ? 'text-amber-500' : 'text-red-500'
+                                        prob.difficulty.toLowerCase() === 'easy' ? 'text-emerald-500' : 
+                                        prob.difficulty.toLowerCase() === 'medium' || prob.difficulty.toLowerCase() === 'normal' ? 'text-amber-500' : 'text-red-500'
                                     }`}>
                                         {prob.difficulty}
                                     </span>
@@ -186,18 +235,26 @@ const Problems = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center p-20 gap-4">
-                        <span className="text-6xl italic grayscale opacity-20">NO RESULTS</span>
+                        <span className="text-6xl italic grayscale opacity-20 text-slate-500">NO RESULTS</span>
                         <p className="font-black uppercase tracking-widest text-slate-400">Try changing your filters or search term</p>
                     </div>
                 )}
 
                 {/* Pagination Section */}
-                {filteredProblems.length > 0 && (
+                {filteredProblems.length > 0 && !loading && !error && (
                     <div className="p-8 border-t-4 border-black flex justify-center gap-8 bg-white">
-                        <button className="btn bg-white border-4 border-black rounded-none px-8 font-black uppercase italic hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2">
+                        <button 
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            className={`btn bg-white border-4 border-black rounded-none px-8 font-black uppercase italic transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2 cursor-pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed shadow-none translate-x-1 translate-y-1' : 'hover:bg-black hover:text-white'}`}
+                        >
                             <ChevronLeft size={20} /> Previous
                         </button>
-                        <button className="btn bg-white border-4 border-black rounded-none px-8 font-black uppercase italic hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2">
+                        <button 
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                            className={`btn bg-white border-4 border-black rounded-none px-8 font-black uppercase italic transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2 cursor-pointer ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed shadow-none translate-x-1 translate-y-1' : 'hover:bg-black hover:text-white'}`}
+                        >
                             Next <ChevronRight size={20} />
                         </button>
                     </div>
@@ -206,7 +263,7 @@ const Problems = () => {
 
             <div className="mt-6 text-center">
                 <p className="font-black uppercase italic text-sky-500 text-sm">
-                    {filteredProblems.length} problems shown in this page
+                    Showing Page {currentPage} of {totalPages} ({filteredProblems.length} problems total)
                 </p>
             </div>
         </div>

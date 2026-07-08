@@ -80,3 +80,16 @@ export const addProblem = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+// @desc    Get all problems
+// @route   GET /api/problem
+// @access  Public
+export const getApprovedProblems = async (req, res) => {
+    try {
+        const problems = await Problem.find({}).sort({ createdAt: -1 });
+        res.json(problems);
+    } catch (error) {
+        console.error('Error fetching problems:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
