@@ -73,7 +73,7 @@ const AdminLogin = () => {
 
             <button
               type="submit"
-              className="w-full py-4 bg-slate-900 text-white font-black uppercase text-xl border-4 border-black shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all hover:bg-emerald-400 hover:text-black"
+              className="w-full py-4 bg-slate-900 text-white font-black uppercase text-xl border-4 border-black shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all hover:bg-emerald-400 hover:text-black cursor-pointer"
             >
               Proceed
             </button>

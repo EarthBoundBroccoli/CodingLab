@@ -7,12 +7,14 @@ import {
   Trophy,
   Menu,
   X,
+  UserCheck,
 } from "lucide-react";
 import { logoutAdmin } from "../lib/admin-auth";
 
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard", icon: Home },
   { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/setter-approvals", label: "Setter Approvals", icon: UserCheck },
   { to: "/admin/problem-requests", label: "Problem Requests", icon: Inbox },
   { to: "/admin/contests", label: "Contests", icon: Trophy },
 ];

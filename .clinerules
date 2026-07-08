@@ -1,0 +1,23 @@
+# CodingLab AI Instructions & Context (.clinerules)
+
+This workspace contains **CodingLab**, a React/Node-based university coding practice and contest platform featuring a Neo-Brutalist UI.
+
+## Tech Stack Quick Reference
+- **Frontend (`src/frontend`):** React 19, Vite, Tailwind CSS 4, DaisyUI 5 (`acid` theme), Recharts, Lucide React, Monaco Editor.
+- **Backend (`src/backend`):** Node.js Express (ES Modules), MongoDB with Mongoose, Better Auth (Unified RBAC), JDoodle API, Cloudinary.
+
+## Codebase Architecture Rules
+1. **Single Responsibility Principle (SRP):** No mega-files. UI elements, layouts, and pages must occupy separate files.
+2. **Style Consistency:** Preserve Neo-Brutalist designs. Card components must utilize custom `.neo-brutal` classes (3px solid black border, 6px offset shadow). Colors include Emerald-400 (success/accents), Sky-400 (categories/problems), Amber-400 (stats/growth).
+3. **Database Fallback:** The backend server (`src/backend/index.js`) must not crash if the MongoDB connection fails. Start Express immediately, returning warnings if Atlas connections time out.
+4. **Dynamic Origin Resolution:** Do not hardcode ports or IPs. Always use dynamic callback origins (`window.location.origin` / `getBackendURL()`) to support local Wi-Fi and deployment variations.
+
+## Feature Implementation Roadmap
+- **Phase 1 (Complete):** Core backend setup, MongoDB integration, and Better Auth authentication (Google/GitHub SSO, RBAC system).
+- **Phase 2 (In Progress):** Public Pages, Problems Discovery (with filters), Contests View, Archive list, and Recharts-based Growth Analytics page are completed. Monaco Editor workspace and JDoodle integration are pending.
+- **Phase 3 (In Progress):** AddProblem page with dual markdown edit/preview tab is complete. Setter dashboard analytics pending.
+- **Phase 4 (In Progress):** Admin panel routing and layout complete. User management/moderation workflows pending.
+
+## Guidelines for AI
+- Refer to [CONTEXT.md](file:///D:/Code%20folder/SPL-2/CONTEXT.md) in the project root for full documentation.
+- Prioritize preserving manually written layout adjustments and custom stylings. Do not overwrite custom modifications with defaults.

@@ -5,9 +5,13 @@ import cors from 'cors';
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 
+import { User } from "./models/User.js";
+
 // Routes Imports
 import setterRoutes from "./routes/setterRoutes.js";
 import problemRoutes from "./routes/problemRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +53,8 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 // Mount routes
 app.use("/api/setter", setterRoutes);
 app.use("/api/problem", problemRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 
 
@@ -78,8 +84,31 @@ const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/codinglab
 
 console.log('Connecting to MongoDB...');
 mongoose.connect(mongoUri)
-  .then(() => {
+  .then(async () => {
     console.log('Successfully connected to MongoDB via Mongoose');
+    try {
+      const adminExists = await User.findOne({ email: "admin@example.com" });
+      console.log(`[Admin Seed] Admin user check completed. Exists: ${!!adminExists}, Role: ${adminExists?.role}`);
+      if (!adminExists) {
+        console.log("Admin user not found. Seeding admin user...");
+        await auth.api.signUpEmail({
+          body: {
+            email: "admin@example.com",
+            password: "admin123",
+            name: "Platform Admin",
+          }
+        });
+        await User.updateOne({ email: "admin@example.com" }, { $set: { role: "admin" } });
+        console.log("Admin user seeded successfully.");
+      } else {
+        if (adminExists.role !== "admin") {
+          await User.updateOne({ email: "admin@example.com" }, { $set: { role: "admin" } });
+          console.log("Admin role verified and updated.");
+        }
+      }
+    } catch (err) {
+      console.error("Error seeding admin user:", err);
+    }
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error.message);

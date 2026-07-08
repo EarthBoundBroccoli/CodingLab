@@ -29,3 +29,9 @@ body {
 @utility font-spartan {
   font-family: "League Spartan", sans-serif;
 }
+
+/* Hide Microsoft Edge / IE default reveal/clear icons in password fields */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

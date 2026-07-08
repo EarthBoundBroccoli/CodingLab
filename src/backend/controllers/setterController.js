@@ -55,7 +55,7 @@ export const applyForSetter = async (req, res) => {
             return res.status(400).json({ message: "Application already submitted" });
         }
 
-        // Create the application. We default status to 'accepted' to satisfy testing requirement:
+        // Create the application as pending for admin review
         const newRequest = new SetterRequest({
             userId: session.user.id,
             institute,
@@ -64,20 +64,14 @@ export const applyForSetter = async (req, res) => {
             cgpa,
             profileLinks,
             motivation,
-            status: 'accepted' // TESTING OVERRIDE: Directly approved (Normally 'pending')
+            status: 'pending'
         });
 
         await newRequest.save();
 
-        // Directly upgrade user's role to 'problem_setter' for testing purposes
-        await User.updateOne(
-            { _id: session.user.id },
-            { $set: { role: 'problem_setter' } }
-        );
-
         res.status(201).json({
-            message: "Application submitted and auto-approved for testing",
-            status: 'accepted'
+            message: "Application submitted successfully under review",
+            status: 'pending'
         });
     } catch (error) {
         console.error('Error submitting setter application:', error);

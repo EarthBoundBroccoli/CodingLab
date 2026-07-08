@@ -1,9 +1,34 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useSession, signOut } from "../lib/auth-client";
+import { useSession, signOut, getBackendURL } from "../lib/auth-client";
+import { Bell } from "lucide-react";
 
 const Navbar = () => {
   const { data: session } = useSession();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!session) return;
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await fetch(`${getBackendURL()}/api/notifications`, {
+          credentials: "include"
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const unread = data.filter(n => !n.isRead).length;
+          setUnreadCount(unread);
+        }
+      } catch (err) {
+        console.error("Error fetching notifications count:", err);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(interval);
+  }, [session, location.pathname]);
 
   // Navigation links based on session
   const navLinks = session ? [
@@ -74,6 +99,16 @@ const Navbar = () => {
                         </button>
                     </Link>
                 )}
+
+                {/* Notification Bell */}
+                <Link to="/inbox" className="btn btn-ghost btn-circle border-2 border-black bg-white hover:bg-emerald-400 relative mr-2 flex items-center justify-center">
+                    <Bell size={20} className="text-black" strokeWidth={2.5} />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-emerald-400 text-black border-2 border-black text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-[1px_1px_0px_black]">
+                            {unreadCount}
+                        </span>
+                    )}
+                </Link>
 
                 {/* User Dropdown */}
                 <div className="dropdown dropdown-end">

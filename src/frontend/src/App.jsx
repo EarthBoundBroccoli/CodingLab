@@ -13,6 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import BecomeSetter from "./pages/BecomeSetter";
 import AddProblem from "./pages/AddProblem";
 import Navbar from "./components/Navbar";
+import Inbox from "./pages/Inbox";
 
 // Admin components
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -20,6 +21,7 @@ import AdminProblemRequests from "./pages/admin/AdminProblemRequests";
 import AdminContests from "./pages/admin/AdminContests";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
+import SetterApprovals from "./pages/admin/SetterApprovals";
 
 function AppContent() {
   const location = useLocation();
@@ -81,6 +83,14 @@ function AppContent() {
             } 
           />
           <Route 
+            path="/inbox" 
+            element={
+              <ProtectedRoute>
+                <Inbox />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/add-problem" 
             element={
               <ProtectedRoute allowedRole="problem_setter">
@@ -94,6 +104,7 @@ function AppContent() {
             <Route element={<AdminLayout />}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="setter-approvals" element={<SetterApprovals />} />
               <Route path="problem-requests" element={<AdminProblemRequests />} />
               <Route path="contests" element={<AdminContests />} />
               <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
