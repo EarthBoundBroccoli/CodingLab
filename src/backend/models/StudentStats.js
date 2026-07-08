@@ -16,6 +16,10 @@ const studentStatsSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Problem' // Keeps array unique to prevent duplication counts
   }],
+  attemptedProblems: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Problem'
+  }],
   difficultyBreakdown: {
     easy: { type: Number, default: 0 },
     medium: { type: Number, default: 0 },

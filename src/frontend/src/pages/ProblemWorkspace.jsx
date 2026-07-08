@@ -32,6 +32,8 @@ const ProblemWorkspace = () => {
   const [customInput, setCustomInput] = useState("");
   const [executionResult, setExecutionResult] = useState(null);
   const [isCompiling, setIsCompiling] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState("NEUTRAL");
+  const [isEvaluating, setIsEvaluating] = useState(false);
 
   // Sync boilerplate when language is toggled
   useEffect(() => {
@@ -50,6 +52,27 @@ const ProblemWorkspace = () => {
         if (response.ok) {
           const data = await response.json();
           setProblem(data);
+          
+          try {
+            const statsResponse = await axios.get(`${getBackendURL()}/api/submissions/profile-stats`, {
+              withCredentials: true
+            });
+            const statsData = statsResponse.data;
+            if (statsData) {
+              const solvedList = statsData.solvedProblems || [];
+              const attemptedList = statsData.attemptedProblems || [];
+              
+              if (solvedList.some(pId => pId.toString() === id.toString())) {
+                setSubmissionStatus('AC');
+              } else if (attemptedList.some(pId => pId.toString() === id.toString())) {
+                setSubmissionStatus('WA');
+              } else {
+                setSubmissionStatus('NEUTRAL');
+              }
+            }
+          } catch (statsErr) {
+            console.error("Failed to load student statistics:", statsErr);
+          }
         } else {
           setError("Problem not found in the database.");
         }
@@ -123,6 +146,63 @@ const ProblemWorkspace = () => {
     }
   };
 
+  const handleSubmitCode = async () => {
+    setIsCompiling(true);
+    setIsEvaluating(true);
+    setActiveTab("output");
+    setExecutionResult(null);
+
+    try {
+      console.log("Submitting code to compilation and grading backend...");
+      const response = await axios.post(`${getBackendURL()}/api/submissions/submit`, {
+        problemId: id,
+        code: codeValue,
+        language: language
+      }, {
+        headers: {
+          "Content-Type": "application/json"
+        },
+        withCredentials: true
+      });
+
+      if (response.status === 200) {
+        const { verdict, timeTaken, memoryUsed, compileOutput, evaluationVerdict } = response.data;
+        const displayOutput = verdict === "Accepted"
+          ? `Verdict: ACCEPTED (AC)\n\nCongratulations! All test cases passed successfully.`
+          : `Verdict: ${verdict.toUpperCase()}\n\n${compileOutput || "One or more test cases failed or resource limits were exceeded."}`;
+        
+        if (evaluationVerdict) {
+          setSubmissionStatus(evaluationVerdict);
+        }
+
+        setExecutionResult({
+          output: displayOutput,
+          statusCode: verdict === "Accepted" ? 0 : 1,
+          memory: memoryUsed,
+          cpuTime: (timeTaken / 1000).toFixed(2),
+          isError: verdict !== "Accepted"
+        });
+      } else {
+        setExecutionResult({
+          output: `Submission failed with status code ${response.status}`,
+          isError: true
+        });
+      }
+    } catch (err) {
+      console.error("Submission error:", err);
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Unknown submission error";
+      const detailedOutput = err.response?.data?.compileOutput || "";
+      
+      setExecutionResult({
+        output: `${errMsg}\n${detailedOutput}`,
+        isError: true
+      });
+    } finally {
+      setIsCompiling(false);
+      setIsEvaluating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] bg-base-200">
@@ -151,7 +231,18 @@ const ProblemWorkspace = () => {
         {/* LEFT PANEL: Description (55%) */}
         <Panel defaultSize={55} minSize={30}>
           <div className="w-full h-full overflow-y-auto p-6 bg-white custom-scrollbar space-y-6">
-            <div className="space-y-3">
+            {isEvaluating && (
+              <div className="flex items-center gap-3 p-4 border-3 border-black bg-amber-300 text-black font-black uppercase text-xs tracking-wider animate-pulse shadow-[4px_4px_0px_0px_black] mb-4">
+                <Loader2 className="animate-spin text-black" size={20} />
+                <span>⏳ EVALUATING TEST CASES... CURRENTLY JUDGING SOLUTION MATRIX</span>
+              </div>
+            )}
+            <div className={`space-y-3 transition-all duration-300 ${
+              submissionStatus === 'AC' ? 'bg-emerald-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
+              submissionStatus === 'WA' ? 'bg-rose-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
+              submissionStatus === 'TLE' ? 'bg-amber-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
+              'bg-white'
+            }`}>
               <Link to="/problems" className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-black transition-colors">
                 <ChevronLeft size={16} /> Back to Problems
               </Link>
@@ -159,6 +250,24 @@ const ProblemWorkspace = () => {
                 <h1 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tight font-spartan text-black">
                   {problem.title}
                 </h1>
+                
+                {/* Dynamic Status Badges */}
+                {submissionStatus === 'AC' && (
+                  <span className="badge rounded-none border-2 border-black bg-white text-black font-black uppercase text-xs px-2.5 py-1.5 shadow-[2px_2px_0px_0px_black]">
+                    SOLVED 🎉
+                  </span>
+                )}
+                {submissionStatus === 'WA' && (
+                  <span className="badge rounded-none border-2 border-black bg-white text-black font-black uppercase text-xs px-2.5 py-1.5 shadow-[2px_2px_0px_0px_black]">
+                    ATTEMPTED ❌
+                  </span>
+                )}
+                {submissionStatus === 'TLE' && (
+                  <span className="badge rounded-none border-2 border-black bg-white text-black font-black uppercase text-xs px-2.5 py-1.5 shadow-[2px_2px_0px_0px_black]">
+                    OUT OF TIME ⏳
+                  </span>
+                )}
+
                 <span className={`badge rounded-none border-2 border-black font-black uppercase text-xs text-black px-2 py-1 ${badgeForDifficulty(problem.difficulty)}`}>
                   {problem.difficulty}
                 </span>
@@ -407,6 +516,7 @@ const ProblemWorkspace = () => {
           <button
             type="button"
             disabled={isCompiling}
+            onClick={handleSubmitCode}
             className={`px-4 py-2 border-4 border-black bg-slate-900 text-white font-black uppercase text-xs sm:text-sm shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 ${
               isCompiling
                 ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
