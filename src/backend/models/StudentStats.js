@@ -29,7 +29,17 @@ const studentStatsSchema = new mongoose.Schema({
   currentStreak: { type: Number, default: 0 },
   longestStreak: { type: Number, default: 0 },
   lastActiveDate: { type: String, default: "" }, // Format: YYYY-MM-DD
-  activityHistory: [dailySolveSchema] // Feeds your Recharts BarCharts/Activity Logs directly!
+  activityHistory: [dailySolveSchema], // Feeds your Recharts BarCharts/Activity Logs directly!
+  
+  // Competitive stats
+  contestRating: { type: Number, default: 1000 },
+  ratingTier: { type: String, default: "NOVICE" },
+  points: { type: Number, default: 0 },
+  ratingHistory: [{
+    contestName: String,
+    ratingChange: String,
+    newRating: Number
+  }]
 }, { 
   timestamps: true 
 });

@@ -315,6 +315,15 @@ export const submitProblemSolution = async (req, res) => {
         if (stats.difficultyBreakdown[diffKey] !== undefined) {
           stats.difficultyBreakdown[diffKey] += 1;
         }
+
+        // Award Practice XP Points based on difficulty
+        if (diffKey === 'easy') {
+          stats.points = (stats.points || 0) + 10;
+        } else if (diffKey === 'medium') {
+          stats.points = (stats.points || 0) + 30;
+        } else if (diffKey === 'hard') {
+          stats.points = (stats.points || 0) + 50;
+        }
       }
 
       // Pull from attempted problems
@@ -438,6 +447,94 @@ export const getStudentProfileStats = async (req, res) => {
     return res.status(200).json(statsObj);
   } catch (error) {
     console.error("Error fetching student profile stats:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// @desc    Get user overall problem stats
+// @route   GET /api/submissions/stats
+// @access  Protected
+export const getUserStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const statsPipeline = await Submission.aggregate([
+      { $match: { userId: userId } },
+      {
+        $group: {
+          _id: "$problemId",
+          isSolved: {
+            $max: { $cond: [{ $eq: ["$verdict", "Accepted"] }, 1, 0] }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalAttempted: { $sum: 1 },
+          totalSolved: { $sum: "$isSolved" }
+        }
+      }
+    ]);
+
+    let totalAttempted = 0;
+    let totalSolved = 0;
+    let successRate = 0.0;
+
+    if (statsPipeline.length > 0) {
+      totalAttempted = statsPipeline[0].totalAttempted;
+      totalSolved = statsPipeline[0].totalSolved;
+      if (totalAttempted > 0) {
+        successRate = (totalSolved / totalAttempted) * 100;
+      }
+    }
+
+    // Fetch the competitive stats from the StudentStats document
+    const studentStatsDoc = await StudentStats.findOne({ userId: userId });
+    let competitiveStats = {
+      contestRating: 1000,
+      ratingTier: "NOVICE",
+      points: 0,
+      ratingHistory: []
+    };
+
+    if (studentStatsDoc) {
+      competitiveStats = {
+        contestRating: studentStatsDoc.contestRating || 1000,
+        ratingTier: studentStatsDoc.ratingTier || "NOVICE",
+        points: studentStatsDoc.points || 0,
+        ratingHistory: studentStatsDoc.ratingHistory || []
+      };
+    }
+
+    return res.status(200).json({
+      totalAttempted,
+      totalSolved,
+      successRate: Number(successRate.toFixed(1)),
+      ...competitiveStats
+    });
+  } catch (error) {
+    console.error("Error in getUserStats:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// @desc    Get recent submissions for the active user
+// @route   GET /api/submissions/recent
+// @access  Protected
+export const getRecentSubmissions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Fetch last 50 submissions, newest first
+    const submissions = await Submission.find({ userId: userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('problemId', 'title difficulty'); // Populate to get problem names
+      
+    return res.status(200).json(submissions);
+  } catch (error) {
+    console.error("Error fetching recent submissions:", error);
     return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
