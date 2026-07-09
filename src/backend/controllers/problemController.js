@@ -110,3 +110,36 @@ export const getProblemById = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+// @desc    Get the daily challenge problem deterministically based on date
+// @route   GET /api/problems/daily
+// @access  Public or Protected
+export const getDailyChallenge = async (req, res) => {
+    try {
+        const totalProblems = await Problem.countDocuments();
+        if (totalProblems === 0) {
+            return res.status(404).json({ message: "No problems found in database." });
+        }
+        
+        // Use current date as the seed
+        const today = new Date();
+        const dateString = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+        
+        // Simple hash function for the date string
+        let hash = 0;
+        for (let i = 0; i < dateString.length; i++) {
+            hash = dateString.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        
+        // Modulo the hash by total problems to get a daily index
+        const index = Math.abs(hash) % totalProblems;
+        
+        // Fetch the specific problem by skipping to that index
+        const dailyProblem = await Problem.findOne().skip(index);
+        
+        res.json(dailyProblem);
+    } catch (error) {
+        console.error("Error fetching daily challenge:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};

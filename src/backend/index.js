@@ -1,3 +1,11 @@
+import dns from "node:dns/promises";
+dns.setServers(["1.1.1.1"]); // This is your magic DNS fix!
+
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Leave everything below this line exactly how your friend wrote it:
+// ... rest of the code continues
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
