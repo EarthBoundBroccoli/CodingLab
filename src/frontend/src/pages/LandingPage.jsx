@@ -94,21 +94,21 @@ const LandingPage = () => {
 
     if (isSolved) {
       return (
-        <span className="bg-emerald-400 text-[10px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
-          SOLVED 🎉
+        <span className="bg-emerald-400 text-[12px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
+          SOLVED
         </span>
       );
     } else if (isAttempted) {
       const lastVerdict = latestVerdicts[prob._id.toString()];
       if (lastVerdict === "Time Limit Exceeded") {
         return (
-          <span className="bg-amber-400 text-[10px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
+          <span className="bg-amber-400 text-[12px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
             TLE ⏳
           </span>
         );
       } else {
         return (
-          <span className="bg-rose-400 text-[10px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
+          <span className="bg-rose-400 text-[12px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
             ATTEMPTED ❌
           </span>
         );
