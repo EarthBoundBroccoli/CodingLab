@@ -195,7 +195,12 @@ async function runSeed() {
     process.exit(0);
 }
 
-runSeed().catch(err => {
-    console.error("Seeding error:", err);
-    process.exit(1);
-});
+
+
+
+// Seeding no longer runs automatically on server start. To seed the database, uncomment the following line and run `node src/backend/seed.js` manually.
+
+// runSeed().catch(err => {
+//     console.error("Seeding error:", err);
+//     process.exit(1);
+// });

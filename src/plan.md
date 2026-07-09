@@ -35,23 +35,23 @@ To ensure the codebase remains maintainable, readable, and easy to modify for a 
     1.  **Landing Page:** The main entry point with problem discovery and stats. [x]
     2.  **About Us:** Information about the team and mission. [x]
     3.  Support:** Help and feedback section. [x]
-    4.  **Student Dashboard:** A landing page displaying basic placeholder statistics and recent activity. [ ]
-    5.  **Problem Discovery:** A page listing problems with search and filtering capabilities. [ ]
-    6.  **The Workspace (Code Editor):** Integration of the Monaco Editor into a clean UI. [ ]
-    7.  **Execution Engine:** Connecting the workspace to the backend and JDoodle API for code execution, displaying instant verdicts. [ ]
-    8.  **Profile & Leaderboard:** Pages for gamification and tracking history. [ ]
+    4.  **Student Dashboard:** A landing page displaying basic statistics, activity logs, and streaks. [x]
+    5.  **Problem Discovery:** A page listing problems with search and filtering capabilities. [x]
+    6.  **The Workspace (Code Editor):** Integration of the Monaco Editor into a clean UI. [x]
+    7.  **Execution Engine:** Connecting the workspace to the backend and JDoodle API for code execution, displaying instant verdicts (AC, WA, TLE). [x]
+    8.  **Profile & Leaderboard:** Pages for gamification, history, and status catalog row indicators. [x]
 
 ### Phase 3: The Problem Setter Experience
 *   **Goal:** Enable content creation.
 *   **Pages:**
     1.  **Problem Studio:** A comprehensive form page for drafting new problems, defining test cases, and constraints. [x]
-    2.  **Setter Dashboard:** A hub to track the status of created problems (Draft, Pending, Approved) and view submission analytics. [ ]
+    2.  **Setter Dashboard:** A hub to track the status of created problems (Draft, Pending, Approved) and view submission analytics. [x]
 
 ### Phase 4: The Admin Experience
 *   **Goal:** Enable platform governance.
 *   **Pages:**
-    1.  **Moderation Dashboard:** A queue interface to review, approve, or reject pending problems. [ ]
-    2.  **User Management:** An interface to manage users and approve role-elevation requests. [ ]
+    1.  **Moderation Dashboard:** A queue interface to review, approve, or reject pending problems. [x]
+    2.  **User Management:** An interface to manage users and approve role-elevation requests. [x]
 
 ### Phase 5: Refinement & Polish
 *   Integration of Video Solutions (Cloudinary). [ ]
@@ -59,4 +59,4 @@ To ensure the codebase remains maintainable, readable, and easy to modify for a 
 *   Final UI/UX polish and edge-case testing. [ ]
 
 ## Next Action
-Refactor `App.jsx` to separate components and apply the `acid` theme globally.
+Integrate background queue engine (Inngest) and video solution upload.

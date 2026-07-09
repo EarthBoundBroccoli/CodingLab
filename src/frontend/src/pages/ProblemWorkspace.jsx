@@ -34,6 +34,7 @@ const ProblemWorkspace = () => {
   const [isCompiling, setIsCompiling] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState("NEUTRAL");
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isRunningSandbox, setIsRunningSandbox] = useState(false);
 
   // Sync boilerplate when language is toggled
   useEffect(() => {
@@ -101,6 +102,7 @@ const ProblemWorkspace = () => {
   };
 
   const handleRunCode = async () => {
+    setIsRunningSandbox(true);
     setIsCompiling(true);
     setActiveTab("output");
     setExecutionResult(null);
@@ -143,6 +145,7 @@ const ProblemWorkspace = () => {
       });
     } finally {
       setIsCompiling(false);
+      setIsRunningSandbox(false);
     }
   };
 
@@ -496,14 +499,14 @@ const ProblemWorkspace = () => {
           <button
             type="button"
             onClick={handleRunCode}
-            disabled={isCompiling}
+            disabled={isCompiling || isEvaluating || isRunningSandbox}
             className={`px-4 py-2 border-4 border-black bg-white font-black uppercase text-xs sm:text-sm shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 text-black ${
-              isCompiling
+              isCompiling || isEvaluating || isRunningSandbox
                 ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
                 : "hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_black] hover:bg-slate-100 cursor-pointer"
             }`}
           >
-            {isCompiling ? (
+            {isRunningSandbox ? (
               <>
                 <Loader2 className="animate-spin" size={16} /> Compiling...
               </>
@@ -515,15 +518,23 @@ const ProblemWorkspace = () => {
           </button>
           <button
             type="button"
-            disabled={isCompiling}
+            disabled={isCompiling || isEvaluating || isRunningSandbox}
             onClick={handleSubmitCode}
             className={`px-4 py-2 border-4 border-black bg-slate-900 text-white font-black uppercase text-xs sm:text-sm shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 ${
-              isCompiling
+              isCompiling || isEvaluating || isRunningSandbox
                 ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
                 : "hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_black] hover:bg-emerald-400 hover:text-black cursor-pointer"
             }`}
           >
-            <Send size={16} /> Submit Code
+            {isEvaluating ? (
+              <>
+                <Loader2 className="animate-spin" size={16} /> Evaluating...
+              </>
+            ) : (
+              <>
+                <Send size={16} /> Submit Code
+              </>
+            )}
           </button>
         </div>
       </div>

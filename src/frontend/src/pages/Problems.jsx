@@ -8,6 +8,7 @@ const Problems = () => {
     const [problems, setProblems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [studentStats, setStudentStats] = useState(null);
 
     // State for Search and Filter Visibility
     const [searchTerm, setSearchTerm] = useState("");
@@ -20,7 +21,7 @@ const Problems = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 20;
 
-    // Fetch approved problems from backend
+    // Fetch approved problems and student stats from backend
     useEffect(() => {
         const fetchProblems = async () => {
             try {
@@ -43,7 +44,21 @@ const Problems = () => {
                 setLoading(false);
             }
         };
+        const fetchStudentStats = async () => {
+            try {
+                const response = await fetch(`${getBackendURL()}/api/submissions/profile-stats`, {
+                    credentials: "include"
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setStudentStats(data);
+                }
+            } catch (err) {
+                console.error("Error fetching student stats in problems list:", err);
+            }
+        };
         fetchProblems();
+        fetchStudentStats();
     }, []);
 
     // Extract tags dynamically from the live dataset
@@ -99,6 +114,46 @@ const Problems = () => {
         setActiveDifficulty(null);
         setActiveTags([]);
         setSortOrder(null);
+    };
+
+    const renderIndex = (prob, idx) => {
+        const indexText = `#${(currentPage - 1) * PAGE_SIZE + idx + 1}`;
+        if (!studentStats) {
+            return (
+                <div className="bg-white border-r-2 border-black text-rose-200 group-hover:text-black transition-colors flex items-center justify-center text-lg font-bold w-16 shrink-0 self-stretch">
+                    {indexText}
+                </div>
+            );
+        }
+
+        const solvedList = studentStats.solvedProblems || [];
+        const attemptedList = studentStats.attemptedProblems || [];
+        const latestVerdicts = studentStats.latestVerdicts || {};
+
+        const isSolved = solvedList.some(pId => pId.toString() === prob._id.toString());
+        const isAttempted = attemptedList.some(pId => pId.toString() === prob._id.toString());
+
+        if (isSolved) {
+            return (
+                <div className="bg-emerald-400 border-r-2 border-black text-black font-black text-xl flex items-center justify-center w-16 shrink-0 self-stretch">
+                    {indexText}
+                </div>
+            );
+        } else if (isAttempted) {
+            const lastVerdict = latestVerdicts[prob._id.toString()];
+            const bgClass = lastVerdict === "Time Limit Exceeded" ? "bg-amber-400" : "bg-rose-400";
+            return (
+                <div className={`${bgClass} border-r-2 border-black text-black font-black text-xl flex items-center justify-center w-16 shrink-0 self-stretch`}>
+                    {indexText}
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-white border-r-2 border-black text-rose-200 group-hover:text-black transition-colors flex items-center justify-center text-lg font-bold w-16 shrink-0 self-stretch">
+                {indexText}
+            </div>
+        );
     };
 
     return (
@@ -206,13 +261,11 @@ const Problems = () => {
                 ) : paginatedProblems.length > 0 ? (
                     <div className="divide-y-4 divide-black">
                         {paginatedProblems.map((prob, idx) => (
-                            <Link key={prob._id} to={`/problems/${prob._id}`} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
-                                {/* Left Side: Index, Title, Tags */}
-                                <div className="flex-1 p-6 flex gap-6 items-start">
-                                    <span className="text-2xl font-black text-red-200 group-hover:text-black transition-colors shrink-0">
-                                        #{ (currentPage - 1) * PAGE_SIZE + idx + 1 }
-                                    </span>
-                                    <div className="space-y-2">
+                            <Link key={prob._id} to={`/problems/${prob._id}`} className="flex flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
+                                {renderIndex(prob, idx)}
+                                <div className="flex-1 flex flex-col md:flex-row">
+                                    {/* Left Side: Title, Tags */}
+                                    <div className="flex-1 p-6 space-y-2">
                                         <h3 className="text-2xl font-black uppercase italic group-hover:text-black transition-colors text-black">{prob.title}</h3>
                                         <div className="flex flex-wrap gap-2">
                                             {prob.tags?.map(tag => (
@@ -220,16 +273,16 @@ const Problems = () => {
                                             ))}
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Right Side: Difficulty */}
-                                <div className="w-full md:w-64 border-t-4 md:border-t-0 md:border-l-4 border-black flex items-center justify-center p-6 bg-white/50">
-                                    <span className={`text-xl font-black uppercase italic ${
-                                        prob.difficulty.toLowerCase() === 'easy' ? 'text-emerald-500' : 
-                                        prob.difficulty.toLowerCase() === 'medium' || prob.difficulty.toLowerCase() === 'normal' ? 'text-amber-500' : 'text-red-500'
-                                    }`}>
-                                        {prob.difficulty}
-                                    </span>
+                                    {/* Right Side: Difficulty */}
+                                    <div className="w-full md:w-64 border-t-4 md:border-t-0 md:border-l-4 border-black flex items-center justify-center p-6 bg-white/50">
+                                        <span className={`text-xl font-black uppercase italic ${
+                                            prob.difficulty.toLowerCase() === 'easy' ? 'text-emerald-500' : 
+                                            prob.difficulty.toLowerCase() === 'medium' || prob.difficulty.toLowerCase() === 'normal' ? 'text-amber-500' : 'text-red-500'
+                                        }`}>
+                                            {prob.difficulty}
+                                        </span>
+                                    </div>
                                 </div>
                             </Link>
                         ))}

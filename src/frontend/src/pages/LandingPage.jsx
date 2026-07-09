@@ -9,6 +9,26 @@ const LandingPage = () => {
   // State for live problems
   const [problems, setProblems] = useState([]);
   const [loadingProblems, setLoadingProblems] = useState(true);
+  const [studentStats, setStudentStats] = useState(null);
+
+  // Fetch stats if session exists
+  useEffect(() => {
+    const fetchStudentStats = async () => {
+      if (!session) return;
+      try {
+        const response = await fetch(`${getBackendURL()}/api/submissions/profile-stats`, {
+          credentials: "include"
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStudentStats(data);
+        }
+      } catch (err) {
+        console.error("Error loading student stats on landing page:", err);
+      }
+    };
+    fetchStudentStats();
+  }, [session]);
 
   // Fetch live approved problems
   useEffect(() => {
@@ -62,6 +82,42 @@ const LandingPage = () => {
     return targetPath || "/";
   };
 
+  const renderStatusBadge = (prob) => {
+    if (!studentStats || !session) return null;
+
+    const solvedList = studentStats.solvedProblems || [];
+    const attemptedList = studentStats.attemptedProblems || [];
+    const latestVerdicts = studentStats.latestVerdicts || {};
+
+    const isSolved = solvedList.some(pId => pId.toString() === prob._id.toString());
+    const isAttempted = attemptedList.some(pId => pId.toString() === prob._id.toString());
+
+    if (isSolved) {
+      return (
+        <span className="bg-emerald-400 text-[10px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
+          SOLVED 🎉
+        </span>
+      );
+    } else if (isAttempted) {
+      const lastVerdict = latestVerdicts[prob._id.toString()];
+      if (lastVerdict === "Time Limit Exceeded") {
+        return (
+          <span className="bg-amber-400 text-[10px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
+            TLE ⏳
+          </span>
+        );
+      } else {
+        return (
+          <span className="bg-rose-400 text-[10px] tracking-wider uppercase font-black px-2 py-0.5 border-2 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ml-3 align-middle inline-block text-black normal-case not-italic">
+            ATTEMPTED ❌
+          </span>
+        );
+      }
+    }
+
+    return null;
+  };
+
   return (
     <div className="max-w-[1400px] mx-auto py-8 px-4 lg:px-8">
       {/* Hero Section */}
@@ -104,7 +160,10 @@ const LandingPage = () => {
                 {problems.map((prob) => (
                   <Link key={prob._id} to={getRedirectPath(`/problems/${prob._id}`)} className="p-4 flex justify-between items-center hover:bg-sky-100 transition-colors cursor-pointer group">
                     <div className="space-y-1">
-                      <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic text-black">{prob.title}</h3>
+                      <h3 className="font-black text-lg group-hover:text-black transition-colors uppercase italic text-black">
+                        {prob.title}
+                        {renderStatusBadge(prob)}
+                      </h3>
                       <div className="flex flex-wrap gap-2">
                         {prob.tags?.map(tag => (
                           <span key={tag} className="badge rounded-none border-2 border-black font-black text-[10px] uppercase bg-white text-black">{tag}</span>

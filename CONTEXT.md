@@ -107,19 +107,29 @@ SPL-2/
    - Draggable horizontal and vertical panel splits using `react-resizable-panels`.
 10. **High-Fidelity Database Seeder:**
     - Seeding script `seed.js` to create 124 users (1 admin, 2 setters, 2 specific students, 119 generic), 48 approved problems, 5 pending problems (with hidden input/output file strings), and 2 pending setter requests.
-11. **Backend Code Compilation Engine (JDoodle API):**
+11. **Backend Code Compilation & Execution Engine:**
     - Created language mapping utility mapping selections to official JDoodle versions.
     - Implemented `/api/submissions/run` POST handler using `axios` to execute code scripts and custom inputs.
     - Added custom tabbed console terminal (stdin / stdout result panel) matching Neo-Brutalist parameters to display compiler outputs and runtime resource metrics.
+12. **Single-Credit Batch Judging Engine & Wrapper Pipelines:**
+    - Groups multiple test cases into a single JDoodle API request delimited by `///`.
+    - Implemented C++, Java, and Python wrapper scripts that dynamically intercept execution streams and isolate execution metrics.
+    - Added sanitized verdict string comparison resolving carriage return mismatches via `.replace(/\r/g, '').trim()`.
+13. **Dynamic Workspace Banner & Execution Button Lockdown:**
+    - Live workspace banner displaying 'AC', 'WA', or 'TLE' based on student metrics.
+    - Decoupled loading flags (`isCompiling`, `isEvaluating`, `isRunningSandbox`) locking out all run/submit action buttons during code processing.
+14. **Dynamic Catalog Status Indicators & Badges:**
+    - Re-architected catalog row index squares on `Problems.jsx` to dynamically reflect problem solve state (AC - Emerald, WA - Rose, TLE - Amber).
+    - Polished status badge tag pills next to featured problem titles on `LandingPage.jsx`.
+15. **Problem Onboarding Status Check:**
+    - Set default onboarding status of newly created problems to `'pending'` in the backend.
 
 ### Work in Progress & Future Implementation ⏳
-1. **Code Execution Engine:**
-   - [ ] Building secure test case evaluation to output verdicts (AC, WA, TLE, MLE, RE).
-2. **Background Tasks:**
+1. **Background Tasks:**
    - [ ] Setup of Inngest backend queue for asynchronous judging.
-3. **Video Solutions:**
+2. **Video Solutions:**
    - [ ] Cloudinary media upload integration for video solutions.
-4. **Admin Contest Creator:**
+3. **Admin Contest Creator:**
    - [ ] Managing upcoming contests and setting schedules.
 
 ---

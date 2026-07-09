@@ -66,7 +66,7 @@ export const addProblem = async (req, res) => {
             hiddenInput: hiddenInputUrl,   // Cloudinary URL
             hiddenOutput: hiddenOutputUrl, // Cloudinary URL
             setterId: session.user.id,
-            status: 'approved' // Auto-approved for now
+            status: 'pending'
         });
 
         const savedProblem = await newProblem.save();

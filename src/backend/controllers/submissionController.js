@@ -86,35 +86,36 @@ const wrapPython = (studentCode) => {
 import sys
 import io
 
-# Split stdin by the delimiter
-input_data = sys.stdin.read()
-test_cases = input_data.split('///')
+student_raw_code = ${JSON.stringify(studentCode)}
 
-student_code = ${JSON.stringify(studentCode)}
+# Intercept the massive batched stream string
+full_input = sys.stdin.read()
+test_cases = full_input.split('///')
 
-orig_stdout = sys.stdout
+original_stdout = sys.stdout
+original_stdin = sys.stdin
 
-for i, tc in enumerate(test_cases):
+for i, case in enumerate(test_cases):
     if i > 0:
-        orig_stdout.write('///\\n')
-        orig_stdout.flush()
-        
-    sys.stdin = io.StringIO(tc)
-    captured = io.StringIO()
-    sys.stdout = captured
+        original_stdout.write('///\\n')
+        original_stdout.flush()
+    
+    # Reset virtual streams for this specific test block
+    sys.stdin = io.StringIO(case.strip())
+    captured_output = io.StringIO()
+    sys.stdout = captured_output
     
     try:
-        namespace = {}
-        exec(student_code, namespace)
+        # Run code globally with __name__ properly initialized to "__main__"
+        exec(student_raw_code, {"__name__": "__main__", "__builtins__": __builtins__})
     except SystemExit:
         pass
     except Exception as e:
-        captured.write(str(e) + '\\n')
+        captured_output.write(str(e) + '\\n')
         
-    sys.stdout = orig_stdout
-    val = captured.getvalue()
-    sys.stdout.write(val)
-    sys.stdout.flush()
+    sys.stdout = original_stdout
+    original_stdout.write(captured_output.getvalue())
+    original_stdout.flush()
 `;
 };
 
@@ -270,8 +271,8 @@ export const submitProblemSolution = async (req, res) => {
         isMatch = false;
       } else {
         for (let i = 0; i < outputsArray.length; i++) {
-          const expected = outputsArray[i].trim();
-          const actual = actualOutputs[i].trim();
+          const expected = outputsArray[i].replace(/\r/g, '').trim();
+          const actual = actualOutputs[i].replace(/\r/g, '').trim();
           if (expected !== actual) {
             isMatch = false;
             break;
@@ -421,7 +422,20 @@ export const getStudentProfileStats = async (req, res) => {
       await stats.save();
     }
 
-    return res.status(200).json(stats);
+    // Fetch user's latest submissions to map latest verdict per problem
+    const submissions = await Submission.find({ userId }).sort({ createdAt: -1 });
+    const latestVerdicts = {};
+    for (const sub of submissions) {
+      const pidStr = sub.problemId.toString();
+      if (!latestVerdicts[pidStr]) {
+        latestVerdicts[pidStr] = sub.verdict;
+      }
+    }
+
+    const statsObj = stats.toObject();
+    statsObj.latestVerdicts = latestVerdicts;
+
+    return res.status(200).json(statsObj);
   } catch (error) {
     console.error("Error fetching student profile stats:", error);
     return res.status(500).json({ message: "Internal server error", error: error.message });
