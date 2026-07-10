@@ -21,7 +21,7 @@ import problemRoutes from "./routes/problemRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import submissionRoutes from "./routes/submissionRoutes.js";
-
+import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -66,7 +66,7 @@ app.use("/api/problems", problemRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/submissions", submissionRoutes);
-
+app.use("/api/leaderboard", leaderboardRoutes);
 
 
 

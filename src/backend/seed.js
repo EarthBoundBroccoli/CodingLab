@@ -1,9 +1,13 @@
+import dns from "node:dns/promises";
+dns.setServers(["1.1.1.1"]); // Magic DNS fix for Bangladesh ISPs
+
 import "dotenv/config";
 import mongoose from "mongoose";
 import { auth } from "./lib/auth.js";
 import { User } from "./models/User.js";
 import { Problem } from "./models/Problem.js";
 import { SetterRequest } from "./models/SetterRequest.js";
+import { University } from "./models/University.js";
 
 const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/codinglab";
 
@@ -16,6 +20,7 @@ async function runSeed() {
     await User.deleteMany({});
     await Problem.deleteMany({});
     await SetterRequest.deleteMany({});
+    await University.deleteMany({});
     try {
         await mongoose.connection.db.collection("account").deleteMany({});
         await mongoose.connection.db.collection("session").deleteMany({});
@@ -83,19 +88,66 @@ async function runSeed() {
     sarahUser.institution = "Vanguard Institute";
     await sarahUser.save();
 
-    // 4. 119 generic student profiles
-    console.log("Inserting 119 generic students...");
-    const genericStudents = [];
-    for (let i = 1; i <= 119; i++) {
-        genericStudents.push({
+    // Create Universities
+    console.log("Creating 15 Bangladeshi Universities...");
+    const bdUniversitiesData = [
+        { name: "Bangladesh University of Engineering and Technology", shortName: "BUET" },
+        { name: "University of Dhaka", shortName: "DU" },
+        { name: "BRAC University", shortName: "BRACU" },
+        { name: "North South University", shortName: "NSU" },
+        { name: "Islamic University of Technology", shortName: "IUT" },
+        { name: "Shahjalal University of Science and Technology", shortName: "SUST" },
+        { name: "Khulna University of Engineering & Technology", shortName: "KUET" },
+        { name: "Rajshahi University of Engineering & Technology", shortName: "RUET" },
+        { name: "Chittagong University of Engineering & Technology", shortName: "CUET" },
+        { name: "American International University-Bangladesh", shortName: "AIUB" },
+        { name: "United International University", shortName: "UIU" },
+        { name: "Ahsanullah University of Science and Technology", shortName: "AUST" },
+        { name: "East West University", shortName: "EWU" },
+        { name: "Independent University, Bangladesh", shortName: "IUB" },
+        { name: "Bangladesh University of Professionals", shortName: "BUP" }
+    ];
+    const insertedUnis = await University.insertMany(bdUniversitiesData);
+    
+    // Assign Emily and Sarah to real universities so you can log in as them and test it!
+    const emilyStudent = await User.findOne({ email: "emily.chen@example.com" });
+    const sarahStudent = await User.findOne({ email: "sarah.khan@example.com" });
+    
+    emilyStudent.university = insertedUnis[0]._id; // BUET
+    emilyStudent.rating = 1500;
+    insertedUnis[0].totalRating = (insertedUnis[0].totalRating || 0) + 1500;
+    await emilyStudent.save();
+
+    sarahStudent.university = insertedUnis[1]._id; // DU
+    sarahStudent.rating = 1400;
+    insertedUnis[1].totalRating = (insertedUnis[1].totalRating || 0) + 1400;
+    await sarahStudent.save();
+
+    // 4. 100 Bangladeshi university students
+    console.log("Inserting 100 Bangladeshi university students...");
+    const bdStudents = [];
+    for (let i = 1; i <= 100; i++) {
+        const randomUni = insertedUnis[Math.floor(Math.random() * insertedUnis.length)];
+        const randomRating = Math.floor(Math.random() * 2000); // 0 to 1999 points
+        randomUni.totalRating = (randomUni.totalRating || 0) + randomRating; // Accumulate the total rating
+        
+        bdStudents.push({
             name: `Student ${i}`,
             email: `student${i}@example.com`,
             role: "student",
-            institution: "CodingLab Academy",
+            university: randomUni._id,
+            institution: randomUni.name,
+            rating: randomRating,
             createdAt: new Date(Date.now() - i * 6 * 60 * 60 * 1000)
         });
     }
-    await User.insertMany(genericStudents);
+    
+    // Save updated universities with total ratings
+    await Promise.all(insertedUnis.map(uni => uni.save()));
+
+    // Shuffle students
+    bdStudents.sort(() => Math.random() - 0.5);
+    await User.insertMany(bdStudents);
 
     console.log("Total users seeded: 124");
 
@@ -200,7 +252,7 @@ async function runSeed() {
 
 // Seeding no longer runs automatically on server start. To seed the database, uncomment the following line and run `node src/backend/seed.js` manually.
 
-// runSeed().catch(err => {
-//     console.error("Seeding error:", err);
-//     process.exit(1);
-// });
+runSeed().catch(err => {
+    console.error("Seeding error:", err);
+    process.exit(1);
+});

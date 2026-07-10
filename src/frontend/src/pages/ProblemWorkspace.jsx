@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useParams, Link, useLocation } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import axios from "axios";
@@ -21,11 +21,16 @@ const boilerplates = {
 
 const ProblemWorkspace = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const prefillCode = location.state?.prefillCode;
+  const prefillLanguage = location.state?.prefillLanguage;
+
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [language, setLanguage] = useState("cpp");
-  const [codeValue, setCodeValue] = useState("");
+  const [language, setLanguage] = useState(prefillLanguage || "cpp");
+  const [codeValue, setCodeValue] = useState(prefillCode || boilerplates[prefillLanguage || "cpp"]);
+  const prevLanguage = useRef(prefillLanguage || "cpp");
 
   // Console execution states
   const [activeTab, setActiveTab] = useState("input");
@@ -38,8 +43,11 @@ const ProblemWorkspace = () => {
 
   // Sync boilerplate when language is toggled
   useEffect(() => {
-    if (boilerplates[language]) {
-      setCodeValue(boilerplates[language]);
+    if (prevLanguage.current !== language) {
+      if (boilerplates[language]) {
+        setCodeValue(boilerplates[language]);
+      }
+      prevLanguage.current = language;
     }
   }, [language]);
 
