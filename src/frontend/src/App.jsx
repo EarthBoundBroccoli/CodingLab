@@ -15,6 +15,8 @@ import AddProblem from "./pages/AddProblem";
 import ProblemWorkspace from "./pages/ProblemWorkspace";
 import Navbar from "./components/Navbar";
 import Inbox from "./pages/Inbox";
+import Leaderboard from "./pages/Leaderboard";
+import CampusLeaderboard from "./pages/CampusLeaderboard";
 
 // Admin components
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -96,6 +98,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Inbox />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/leaderboard" 
+            element={
+              <ProtectedRoute>
+                <Leaderboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/leaderboard/university/:universityId" 
+            element={
+              <ProtectedRoute>
+                <CampusLeaderboard />
               </ProtectedRoute>
             } 
           />

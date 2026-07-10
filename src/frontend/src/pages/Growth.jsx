@@ -22,22 +22,32 @@ const Growth = () => {
         contestRating: 0,
         ratingTier: "",
         points: 0,
-        ratingHistory: []
+        ratingHistory: [],
+        difficultyStats: {
+            easy: { rate: 0 },
+            medium: { rate: 0 },
+            hard: { rate: 0 }
+        },
+        currentStreak: 0,
+        longestStreak: 0,
+        campusRank: null,
+        university: null
     });
     const [loading, setLoading] = useState(true);
     const [recentSubmissions, setRecentSubmissions] = useState([]);
     const [dailyChallenge, setDailyChallenge] = useState(null);
+    const [selectedSubmission, setSelectedSubmission] = useState(null);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 // Fetch stats, recent submissions, and daily challenge in parallel
-                const [statsRes, recentRes, dailyRes] = await Promise.all([
+                const [statsRes, recentRes, dailyRes, leaderboardRes] = await Promise.all([
                     axios.get(`${getBackendURL()}/api/submissions/user-stats`, { withCredentials: true }),
                     axios.get(`${getBackendURL()}/api/submissions/recent`, { withCredentials: true }),
-                    axios.get(`${getBackendURL()}/api/problems/daily`)
+                    axios.get(`${getBackendURL()}/api/problems/daily`),
+                    axios.get(`${getBackendURL()}/api/leaderboard/me`, { withCredentials: true })
                 ]);
-
                 setUserStats({
                     successRate: statsRes.data.successRate || 0,
                     totalAttempted: statsRes.data.totalAttempted || 0,
@@ -45,7 +55,12 @@ const Growth = () => {
                     contestRating: statsRes.data.contestRating || 0,
                     ratingTier: statsRes.data.ratingTier || "NOVICE",
                     points: statsRes.data.points || 0,
-                    ratingHistory: statsRes.data.ratingHistory || []
+                    ratingHistory: statsRes.data.ratingHistory || [],
+                    difficultyStats: statsRes.data.difficultyStats || { easy: { rate: 0 }, medium: { rate: 0 }, hard: { rate: 0 } },
+                    currentStreak: statsRes.data.currentStreak || 0,
+                    longestStreak: statsRes.data.longestStreak || 0,
+                    campusRank: leaderboardRes.data.campusRank || null,
+                    university: leaderboardRes.data.university || null
                 });
 
                 // Format backend submissions to match frontend UI exactly
@@ -62,7 +77,8 @@ const Growth = () => {
                         name: sub.problemId?.title || "Unknown Problem",
                         language: sub.language === "cpp" ? "C++" : sub.language === "python" ? "Python" : "Java",
                         time: timeStr,
-                        status: sub.verdict === "Accepted" ? "ACCEPTED" : "REJECTED"
+                        status: sub.verdict === "Accepted" ? "ACCEPTED" : "REJECTED",
+                        code: sub.code
                     };
                 });
                 setRecentSubmissions(formattedSubmissions);
@@ -85,9 +101,11 @@ const Growth = () => {
         ratingTier: loading ? "..." : userStats.ratingTier,
         points: loading ? "..." : userStats.points,
         ratingHistory: userStats.ratingHistory,
-        ranking: "#1,240",
-        currentStreak: 12,
-        maxStreak: 25,
+        ranking: loading ? "..." : userStats.campusRank ? `#${userStats.campusRank}` : "N/A",
+        universityName: userStats.university?.shortName || "Campus",
+        universityId: userStats.university?._id || null,
+        currentStreak: loading ? "..." : userStats.currentStreak,
+        maxStreak: loading ? "..." : userStats.longestStreak,
         daysActive: 48,
         lastSubmission: "May 26, 2026",
     };
@@ -136,15 +154,15 @@ const Growth = () => {
                         <div className="space-y-2 text-xs font-bold">
                             <div className="flex justify-between items-center">
                                 <span className="text-emerald-600">Easy</span>
-                                <span className="text-black">82%</span>
+                                <span className="text-black">{loading ? "..." : Math.round(userStats.difficultyStats.easy.rate)}%</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-amber-600">Normal</span>
-                                <span className="text-black">65%</span>
+                                <span className="text-black">{loading ? "..." : Math.round(userStats.difficultyStats.medium.rate)}%</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-red-600">Hard</span>
-                                <span className="text-black">45%</span>
+                                <span className="text-black">{loading ? "..." : Math.round(userStats.difficultyStats.hard.rate)}%</span>
                             </div>
                         </div>
                     </div>
@@ -162,7 +180,14 @@ const Growth = () => {
                 <div className="bg-white neo-brutal p-8 flex flex-col items-center justify-center text-center space-y-2 group hover:bg-sky-50 transition-colors relative">
                     <TrendingUp size={40} className="text-sky-500 mb-2 group-hover:scale-110 transition-transform" />
                     <span className="text-4xl font-black">{stats.contestRating}</span>
-                    <div className={`text-black px-3 py-1 font-black uppercase text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${stats.ratingTier === 'EXPERT' ? 'bg-[#FFC700]' : 'bg-slate-200'}`}>
+                    <div className={`text-black px-3 py-1 font-black uppercase text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+                        stats.ratingTier === 'Newbie' ? 'bg-slate-200' :
+                        stats.ratingTier === 'Pupil' ? 'bg-green-400' :
+                        stats.ratingTier === 'Specialist' ? 'bg-cyan-400' :
+                        stats.ratingTier === 'Expert' ? 'bg-blue-500 text-white' :
+                        stats.ratingTier === 'Candidate Master' ? 'bg-purple-500 text-white' :
+                        'bg-red-500 text-white'
+                    }`}>
                         {stats.ratingTier}
                     </div>
                     <span className="font-black uppercase text-xs tracking-[0.2em] opacity-50">Contest Rating</span>
@@ -211,14 +236,20 @@ const Growth = () => {
                     </div>
                 </div>
                 <button 
-                    onClick={() => alert('Redirecting to Campus Leaderboard...')}
+                    onClick={() => {
+                        if (stats.universityId) {
+                            navigate(`/leaderboard/university/${stats.universityId}`);
+                        } else {
+                            alert('You have not joined a university yet.');
+                        }
+                    }}
                     className="bg-white neo-brutal border-[3px] border-black p-8 flex flex-col items-center justify-center text-center space-y-2 group hover:bg-amber-50 transition-all cursor-pointer shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] w-full"
                 >
                     <Award size={40} className="text-amber-500 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-4xl font-black text-black">#12</span>
+                    <span className="text-4xl font-black text-black">{stats.ranking}</span>
                     <span className="font-black uppercase text-xs tracking-[0.2em] opacity-50 text-black">Campus Rank</span>
                     <div className="text-xl font-black uppercase text-black mt-2 bg-amber-200 border-2 border-black px-4 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                        Rank in IUT
+                        Rank in {stats.universityName}
                     </div>
                 </button>
             </div>
@@ -280,7 +311,7 @@ const Growth = () => {
                         {paginatedSubmissions.map((sub) => (
                             <div 
                                 key={sub.id} 
-                                onClick={() => sub.problemId && navigate(`/problems/${sub.problemId}`)}
+                                onClick={() => sub.problemId && setSelectedSubmission(sub)}
                                 className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-amber-50 transition-colors gap-4 md:gap-0 cursor-pointer group"
                             >
                                 <div className="w-full md:w-[40%] flex items-center">
@@ -323,6 +354,51 @@ const Growth = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Code Viewer Modal */}
+            {selectedSubmission && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="bg-white border-[6px] border-black neo-brutal w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative">
+                        {/* Header */}
+                        <div className="bg-black text-white p-4 flex justify-between items-center">
+                            <h3 className="text-xl font-black uppercase tracking-tight italic">
+                                {selectedSubmission.name} - <span className={selectedSubmission.status === 'ACCEPTED' ? 'text-emerald-400' : 'text-red-400'}>{selectedSubmission.status}</span>
+                            </h3>
+                            <button 
+                                onClick={() => setSelectedSubmission(null)} 
+                                className="text-white hover:text-red-500 font-bold text-2xl leading-none transition-colors cursor-pointer"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        {/* Code Viewer */}
+                        <div className="flex-1 overflow-auto bg-[#1e1e1e] p-6 text-left border-y-4 border-black">
+                            <pre className="text-emerald-400 font-mono text-sm whitespace-pre-wrap">
+                                <code>{selectedSubmission.code}</code>
+                            </pre>
+                        </div>
+                        
+                        {/* Footer with Solve Again */}
+                        <div className="p-6 bg-slate-50 flex justify-between items-center">
+                            <div className="font-bold uppercase text-sm border-2 border-black px-4 py-2 bg-white shadow-[2px_2px_0px_0px_black] text-black">
+                                {selectedSubmission.language}
+                            </div>
+                            <button 
+                                onClick={() => navigate(`/problems/${selectedSubmission.problemId}`, { 
+                                    state: { 
+                                        prefillCode: selectedSubmission.code,
+                                        prefillLanguage: selectedSubmission.language === 'C++' ? 'cpp' : selectedSubmission.language === 'Python' ? 'python' : 'java'
+                                    } 
+                                })}
+                                className="bg-amber-400 text-black px-8 py-3 font-black uppercase tracking-[0.1em] border-4 border-black shadow-[4px_4px_0px_0px_black] hover:bg-amber-300 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
+                            >
+                                SOLVE AGAIN →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSession, getBackendURL } from "../lib/auth-client";
-import { Target, Code2, Award, Zap, Loader2 } from "lucide-react";
+import { Target, Code2, Award, Zap, Loader2, TrendingUp } from "lucide-react";
 
 const LandingPage = () => {
   const { data: session, isPending } = useSession();
@@ -10,24 +10,31 @@ const LandingPage = () => {
   const [problems, setProblems] = useState([]);
   const [loadingProblems, setLoadingProblems] = useState(true);
   const [studentStats, setStudentStats] = useState(null);
+  const [userStats, setUserStats] = useState(null);
 
   // Fetch stats if session exists
   useEffect(() => {
-    const fetchStudentStats = async () => {
+    const fetchAllStats = async () => {
       if (!session) return;
       try {
-        const response = await fetch(`${getBackendURL()}/api/submissions/profile-stats`, {
-          credentials: "include"
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStudentStats(data);
+        const [profileRes, userRes] = await Promise.all([
+          fetch(`${getBackendURL()}/api/submissions/profile-stats`, { credentials: "include" }),
+          fetch(`${getBackendURL()}/api/submissions/user-stats`, { credentials: "include" })
+        ]);
+        
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          setStudentStats(profileData);
+        }
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setUserStats(userData);
         }
       } catch (err) {
-        console.error("Error loading student stats on landing page:", err);
+        console.error("Error loading stats on landing page:", err);
       }
     };
-    fetchStudentStats();
+    fetchAllStats();
   }, [session]);
 
   // Fetch live approved problems
@@ -61,14 +68,6 @@ const LandingPage = () => {
     { id: 2, title: "Educational Round #15", host: "ProblemSetter_X", endsAt: "June 02, 2026" },
     { id: 3, title: "Algorithm Masters 2026", host: "CodingClub", endsAt: "June 10, 2026" },
   ];
-
-  // Dummy stats to match the Growth page
-  const dummyStats = {
-    solved: 142,
-    successRate: "72.4%",
-    rank: "#1,240",
-    points: 4250
-  };
 
   if (isPending) return (
     <div className="flex justify-center items-center min-h-[60vh]">
@@ -227,31 +226,35 @@ const LandingPage = () => {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
-                      <Code2 size={16} className="text-sky-500 mb-1" />
-                      <span className="text-xl font-black text-black">{session ? dummyStats.solved : 0}</span>
-                      <span className="text-[8px] font-black uppercase opacity-50">Solved</span>
+                  {/* Success Rate */}
+                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-emerald-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
+                      <Target size={24} className="text-emerald-500 mb-1 group-hover:scale-110 transition-transform" />
+                      <span className="text-2xl font-black text-black">{userStats ? `${userStats.successRate}%` : "0%"}</span>
+                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Success Rate</span>
                   </div>
-                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
-                      <Target size={16} className="text-emerald-500 mb-1" />
-                      <span className="text-xl font-black text-black">{session ? dummyStats.successRate : "0%"}</span>
-                      <span className="text-[8px] font-black uppercase opacity-50">Success</span>
+
+                  {/* Practice XP */}
+                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-amber-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
+                      <Zap size={24} className="text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
+                      <span className="text-2xl font-black text-black">{userStats ? userStats.points : 0}</span>
+                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Practice XP</span>
                   </div>
-                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
-                      <Award size={16} className="text-amber-500 mb-1" />
-                      <span className="text-xl font-black text-black">{session ? dummyStats.rank : "#--"}</span>
-                      <span className="text-[8px] font-black uppercase opacity-50">Rank</span>
+
+                  {/* Contest Rating */}
+                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-sky-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
+                      <TrendingUp size={24} className="text-sky-500 mb-1 group-hover:scale-110 transition-transform" />
+                      <span className="text-2xl font-black text-black">{userStats ? userStats.contestRating : 0}</span>
+                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Contest Rating</span>
                   </div>
-                  <div className="flex flex-col items-center p-3 bg-slate-50 border-2 border-black">
-                      <Zap size={16} className="text-black mb-1" />
-                      <span className="text-xl font-black text-black">{session ? dummyStats.points : 0}</span>
-                      <span className="text-[8px] font-black uppercase opacity-50">Points</span>
+
+                  {/* Campus Rank */}
+                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-amber-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
+                      <Award size={24} className="text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
+                      <span className="text-2xl font-black text-black">#12</span>
+                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Campus Rank</span>
                   </div>
               </div>
-              <div className="w-full bg-slate-200 h-4 border-2 border-black relative overflow-hidden">
-                <div className={`bg-emerald-400 h-full transition-all duration-500`} style={{ width: session ? '72.4%' : '0%' }}></div>
-              </div>
-              <Link to={getRedirectPath("/growth")} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-amber-400 hover:text-black cursor-pointer">View Full Dashboard</Link>
+              <Link to={getRedirectPath("/growth")} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-emerald-400 hover:text-black cursor-pointer shadow-[4px_4px_0px_0px_black] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">View Full Dashboard</Link>
             </div>
           </div>
 

@@ -20,7 +20,6 @@ const fetchIfNeeded = async (urlOrContent) => {
   return urlOrContent;
 };
 
-// C++ code wrapper
 const wrapCpp = (studentCode) => {
   const usesArgc = /\bmain\s*\(\s*int\b/.test(studentCode);
   
@@ -469,10 +468,28 @@ export const getUserStats = async (req, res) => {
         }
       },
       {
+        $lookup: {
+          from: "problems",
+          localField: "_id",
+          foreignField: "_id",
+          as: "problemDetails"
+        }
+      },
+      { $unwind: { path: "$problemDetails", preserveNullAndEmptyArrays: true } },
+      {
         $group: {
           _id: null,
           totalAttempted: { $sum: 1 },
-          totalSolved: { $sum: "$isSolved" }
+          totalSolved: { $sum: "$isSolved" },
+          
+          easyAttempted: { $sum: { $cond: [{ $eq: ["$problemDetails.difficulty", "Easy"] }, 1, 0] } },
+          easySolved: { $sum: { $cond: [{ $eq: ["$problemDetails.difficulty", "Easy"] }, "$isSolved", 0] } },
+          
+          mediumAttempted: { $sum: { $cond: [{ $eq: ["$problemDetails.difficulty", "Medium"] }, 1, 0] } },
+          mediumSolved: { $sum: { $cond: [{ $eq: ["$problemDetails.difficulty", "Medium"] }, "$isSolved", 0] } },
+          
+          hardAttempted: { $sum: { $cond: [{ $eq: ["$problemDetails.difficulty", "Hard"] }, 1, 0] } },
+          hardSolved: { $sum: { $cond: [{ $eq: ["$problemDetails.difficulty", "Hard"] }, "$isSolved", 0] } }
         }
       }
     ]);
@@ -480,12 +497,36 @@ export const getUserStats = async (req, res) => {
     let totalAttempted = 0;
     let totalSolved = 0;
     let successRate = 0.0;
+    let difficultyStats = {
+      easy: { solved: 0, attempted: 0, rate: 0 },
+      medium: { solved: 0, attempted: 0, rate: 0 },
+      hard: { solved: 0, attempted: 0, rate: 0 }
+    };
 
     if (statsPipeline.length > 0) {
-      totalAttempted = statsPipeline[0].totalAttempted;
-      totalSolved = statsPipeline[0].totalSolved;
+      const stats = statsPipeline[0];
+      totalAttempted = stats.totalAttempted;
+      totalSolved = stats.totalSolved;
       if (totalAttempted > 0) {
         successRate = (totalSolved / totalAttempted) * 100;
+      }
+      
+      difficultyStats.easy.attempted = stats.easyAttempted || 0;
+      difficultyStats.easy.solved = stats.easySolved || 0;
+      if (difficultyStats.easy.attempted > 0) {
+        difficultyStats.easy.rate = (difficultyStats.easy.solved / difficultyStats.easy.attempted) * 100;
+      }
+      
+      difficultyStats.medium.attempted = stats.mediumAttempted || 0;
+      difficultyStats.medium.solved = stats.mediumSolved || 0;
+      if (difficultyStats.medium.attempted > 0) {
+        difficultyStats.medium.rate = (difficultyStats.medium.solved / difficultyStats.medium.attempted) * 100;
+      }
+      
+      difficultyStats.hard.attempted = stats.hardAttempted || 0;
+      difficultyStats.hard.solved = stats.hardSolved || 0;
+      if (difficultyStats.hard.attempted > 0) {
+        difficultyStats.hard.rate = (difficultyStats.hard.solved / difficultyStats.hard.attempted) * 100;
       }
     }
 
@@ -495,7 +536,10 @@ export const getUserStats = async (req, res) => {
       contestRating: 1000,
       ratingTier: "NOVICE",
       points: 0,
-      ratingHistory: []
+      ratingHistory: [],
+      currentStreak: 0,
+      longestStreak: 0,
+      activityHistory: []
     };
 
     if (studentStatsDoc) {
@@ -503,7 +547,10 @@ export const getUserStats = async (req, res) => {
         contestRating: studentStatsDoc.contestRating || 1000,
         ratingTier: studentStatsDoc.ratingTier || "NOVICE",
         points: studentStatsDoc.points || 0,
-        ratingHistory: studentStatsDoc.ratingHistory || []
+        ratingHistory: studentStatsDoc.ratingHistory || [],
+        currentStreak: studentStatsDoc.currentStreak || 0,
+        longestStreak: studentStatsDoc.longestStreak || 0,
+        activityHistory: studentStatsDoc.activityHistory || []
       };
     }
 
@@ -511,6 +558,7 @@ export const getUserStats = async (req, res) => {
       totalAttempted,
       totalSolved,
       successRate: Number(successRate.toFixed(1)),
+      difficultyStats,
       ...competitiveStats
     });
   } catch (error) {
