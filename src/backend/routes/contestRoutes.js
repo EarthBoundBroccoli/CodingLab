@@ -6,9 +6,9 @@ import {
     updateContest,
     deleteContest,
     endContest,
-    getContestLeaderboard,
+    getLeaderboard,
     registerForContest,
-    submitContestSolution
+    submitToContest
 } from "../controllers/contestController.js";
 import { requireAdmin, requireStudent } from "../middleware/auth.js";
 
@@ -17,7 +17,7 @@ const router = express.Router();
 // Public routes
 router.get("/", getAllContests);
 router.get("/:id", getContestById);
-router.get("/:id/leaderboard", getContestLeaderboard);
+router.get("/:id/leaderboard", getLeaderboard);
 
 // Admin-only routes
 router.post("/", requireAdmin, createContest);
@@ -27,6 +27,6 @@ router.put("/:id/end", requireAdmin, endContest);
 
 // Student-only routes
 router.post("/:id/register", requireStudent, registerForContest);
-router.post("/:id/submit", requireStudent, submitContestSolution);
+router.post("/:id/submit", requireStudent, submitToContest);
 
 export default router;

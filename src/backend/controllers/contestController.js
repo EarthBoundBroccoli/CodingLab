@@ -195,7 +195,7 @@ public class JDoodleWrapper {
 // @access  Public
 export const getAllContests = async (req, res) => {
     try {
-        const contests = await Contest.find({}).sort({ startTime: -1 });
+        const contests = await Contest.find({}).sort({ startTime: -1 }).populate("createdBy", "name email");
         // Auto-update status for each contest
         for (const contest of contests) {
             await autoUpdateContestStatus(contest);
@@ -212,7 +212,9 @@ export const getAllContests = async (req, res) => {
 // @access  Public
 export const getContestById = async (req, res) => {
     try {
-        let contest = await Contest.findById(req.params.id).populate("problems");
+        let contest = await Contest.findById(req.params.id)
+            .populate("problems")
+            .populate("createdBy", "name email");
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
