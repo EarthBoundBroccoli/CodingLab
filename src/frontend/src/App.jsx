@@ -6,6 +6,7 @@ import About from "./pages/About";
 import Support from "./pages/Support";
 import Problems from "./pages/Problems";
 import Contests from "./pages/Contests";
+import ContestDetail from "./pages/ContestDetail";
 import PreviousContests from "./pages/PreviousContests";
 import Growth from "./pages/Growth";
 import AdminLogin from "./pages/AdminLogin";
@@ -66,6 +67,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Contests />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/contests/:id" 
+            element={
+              <ProtectedRoute>
+                <ContestDetail />
               </ProtectedRoute>
             } 
           />
