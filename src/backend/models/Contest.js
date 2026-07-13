@@ -30,7 +30,7 @@ const contestSchema = new mongoose.Schema({
   },
   participants: [{
     userId: { 
-      type: mongoose.Schema.Types.ObjectId, 
+      type: String, // Matches Better Auth string user ID
       ref: 'User' 
     },
     score: { 
@@ -47,7 +47,7 @@ const contestSchema = new mongoose.Schema({
     }]
   }],
   createdBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
+    type: String, // Matches Better Auth string user ID
     ref: 'User' 
   }
 }, { 
@@ -55,11 +55,11 @@ const contestSchema = new mongoose.Schema({
 });
 
 // Auto-calculate duration in minutes before saving
-contestSchema.pre('save', function(next) {
-  if (this.startTime && this.endTime) {
-    this.duration = Math.round((this.endTime - this.startTime) / (1000 * 60));
-  }
-  next();
-});
+// contestSchema.pre('save', function(next) {
+//   if (this.startTime && this.endTime) {
+//     this.duration = Math.round((this.endTime - this.startTime) / (1000 * 60));
+//   }
+//   next();
+// });
 
 export const Contest = mongoose.model('Contest', contestSchema, 'contests');

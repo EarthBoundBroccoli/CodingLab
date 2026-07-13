@@ -449,7 +449,11 @@ const ContestDetail = () => {
               <h2 className="text-xl lg:text-2xl font-black uppercase font-spartan text-black">Contest Problems</h2>
             </div>
             <div className="divide-y-2 divide-black">
-              {!isRegistered && !isEnded ? (
+              {contest.status === "Upcoming" ? (
+                <div className="p-8 text-center text-slate-500 font-bold uppercase text-xs flex flex-col items-center justify-center gap-2">
+                  <span>🔒 Problems will be revealed when the contest starts.</span>
+                </div>
+              ) : !isRegistered && !isEnded ? (
                 <div className="p-8 text-center text-slate-500 font-bold uppercase text-xs">
                   Register for this contest to view and solve the problems.
                 </div>
@@ -747,7 +751,7 @@ const ContestDetail = () => {
             <div className="p-4 space-y-3 text-xs">
               <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                 <span className="font-black uppercase text-slate-500">Problems</span>
-                <span className="font-black text-black">{contest.problems?.length || 0}</span>
+                <span className="font-black text-black">{contest.status === "Upcoming" ? "Hidden" : contest.problems?.length || 0}</span>
               </div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                 <span className="font-black uppercase text-slate-500">Scoring</span>

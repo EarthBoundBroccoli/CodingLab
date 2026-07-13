@@ -27,6 +27,49 @@ const autoUpdateContestStatus = async (contest) => {
     return contest;
 };
 
+// Helper to safely attach creator and participant user info without Mongoose CastError on String IDs
+const populateContestUsers = async (contestDoc) => {
+    if (!contestDoc) return contestDoc;
+    const contestObj = contestDoc.toObject ? contestDoc.toObject() : { ...contestDoc };
+    
+    // Safely populate createdBy
+    if (contestObj.createdBy && typeof contestObj.createdBy === 'string') {
+        try {
+            const user = await User.findOne({
+                $or: [{ _id: contestObj.createdBy }, { id: contestObj.createdBy }]
+            }).select("name email");
+            if (user) {
+                contestObj.createdBy = user;
+            }
+        } catch (e) {
+            // Ignore invalid ID lookups
+        }
+    }
+    
+    // Safely populate participants.userId
+    if (Array.isArray(contestObj.participants)) {
+        contestObj.participants = await Promise.all(
+            contestObj.participants.map(async (p) => {
+                if (p && p.userId && typeof p.userId === 'string') {
+                    try {
+                        const user = await User.findOne({
+                            $or: [{ _id: p.userId }, { id: p.userId }]
+                        }).select("name email");
+                        if (user) {
+                            p.userId = user;
+                        }
+                    } catch (e) {
+                        // Ignore invalid ID lookups
+                    }
+                }
+                return p;
+            })
+        );
+    }
+    
+    return contestObj;
+};
+
 // Helper function to fetch content from Cloudinary URL if needed
 const fetchIfNeeded = async (urlOrContent) => {
   if (urlOrContent && (urlOrContent.startsWith("http://") || urlOrContent.startsWith("https://"))) {
@@ -195,12 +238,14 @@ public class JDoodleWrapper {
 // @access  Public
 export const getAllContests = async (req, res) => {
     try {
-        const contests = await Contest.find({}).sort({ startTime: -1 }).populate("createdBy", "name email");
-        // Auto-update status for each contest
-        for (const contest of contests) {
-            await autoUpdateContestStatus(contest);
-        }
-        res.json(contests);
+        const contests = await Contest.find({}).sort({ startTime: -1 });
+        const populatedContests = await Promise.all(
+            contests.map(async (contest) => {
+                await autoUpdateContestStatus(contest);
+                return await populateContestUsers(contest);
+            })
+        );
+        res.json(populatedContests);
     } catch (error) {
         console.error("Error getting contests:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -213,13 +258,17 @@ export const getAllContests = async (req, res) => {
 export const getContestById = async (req, res) => {
     try {
         let contest = await Contest.findById(req.params.id)
-            .populate("problems")
-            .populate("createdBy", "name email");
+            .populate("problems");
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
         await autoUpdateContestStatus(contest);
-        res.json(contest);
+        const populatedContest = await populateContestUsers(contest);
+        // Hide problems if status is 'Upcoming' so problems are not visible before contest starts
+        if (populatedContest.status === 'Upcoming') {
+            populatedContest.problems = [];
+        }
+        res.json(populatedContest);
     } catch (error) {
         console.error("Error getting contest:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -242,12 +291,16 @@ export const createContest = async (req, res) => {
             return res.status(400).json({ message: "endTime must be after startTime" });
         }
 
+        if (!Array.isArray(problems) || problems.length === 0) {
+            return res.status(400).json({ message: "Contest must have at least 1 problem selected" });
+        }
+
         const newContest = new Contest({
             name,
             description,
             startTime: start,
             endTime: end,
-            problems: problems || [],
+            problems,
             createdBy: req.user.id,
             status: 'Upcoming'
         });
@@ -255,8 +308,8 @@ export const createContest = async (req, res) => {
         await newContest.save();
         res.status(201).json(newContest);
     } catch (error) {
-        console.error("Error creating contest:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("Error creating contest:", error.message, error.stack);
+        res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
 
@@ -275,7 +328,12 @@ export const updateContest = async (req, res) => {
         if (description !== undefined) contest.description = description;
         if (startTime !== undefined) contest.startTime = new Date(startTime);
         if (endTime !== undefined) contest.endTime = new Date(endTime);
-        if (problems !== undefined) contest.problems = problems;
+        if (problems !== undefined) {
+            if (!Array.isArray(problems) || problems.length === 0) {
+                return res.status(400).json({ message: "Contest must have at least 1 problem selected" });
+            }
+            contest.problems = problems;
+        }
         if (status !== undefined) {
             if (!['Upcoming', 'Ongoing', 'Ended'].includes(status)) {
                 return res.status(400).json({ message: "Invalid status value" });
@@ -335,12 +393,13 @@ export const endContest = async (req, res) => {
 // @access  Public
 export const getLeaderboard = async (req, res) => {
     try {
-        const contest = await Contest.findById(req.params.id).populate("participants.userId", "name email");
+        const contest = await Contest.findById(req.params.id);
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
+        const populatedContest = await populateContestUsers(contest);
         // Sort participants: score DESC, penalty ASC
-        const leaderboard = [...contest.participants].sort((a, b) => {
+        const leaderboard = [...(populatedContest.participants || [])].sort((a, b) => {
             if (b.score !== a.score) {
                 return b.score - a.score;
             }

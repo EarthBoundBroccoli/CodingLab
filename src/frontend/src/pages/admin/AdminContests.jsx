@@ -145,7 +145,7 @@ const AdminContests = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.startTime || !form.endTime) return;
+    if (!form.name || !form.startTime || !form.endTime || !form.problemIds.length) return;
 
     try {
       const payload = {
@@ -442,8 +442,8 @@ const AdminContests = () => {
                   ))}
                 </div>
               ) : (
-                <p className="font-bold text-xs uppercase text-slate-500">
-                  No problems selected
+                <p className="font-bold text-xs uppercase text-rose-600">
+                  ⚠️ At least 1 problem must be selected
                 </p>
               )}
             </div>
@@ -459,7 +459,13 @@ const AdminContests = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-3 border-4 border-black bg-slate-900 text-white font-black uppercase text-xs shadow-[3px_3px_0px_0px_black] hover:bg-emerald-400 hover:text-black cursor-pointer"
+              disabled={form.problemIds.length === 0}
+              title={form.problemIds.length === 0 ? "Please select at least 1 problem" : ""}
+              className={`px-4 py-3 border-4 border-black font-black uppercase text-xs shadow-[3px_3px_0px_0px_black] ${
+                form.problemIds.length === 0
+                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                  : "bg-slate-900 text-white hover:bg-emerald-400 hover:text-black cursor-pointer"
+              }`}
             >
               {form.id ? "Update Contest" : "Create Contest"}
             </button>

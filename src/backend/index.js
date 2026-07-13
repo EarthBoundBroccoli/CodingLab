@@ -11,7 +11,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import { toNodeHandler } from "better-auth/node";
-import { auth } from "./lib/auth.js";
+import { auth, adminBypass } from "./lib/auth.js";
 
 import { User } from "./models/User.js";
 
@@ -54,11 +54,11 @@ app.use(cors({
 
 app.use(express.json());
 
+// Global admin bypass middleware — pre-sets req.user from x-admin-token header
+app.use(adminBypass);
+
 // Better Auth handler
 app.all("/api/auth/*splat", toNodeHandler(auth));
-
-
-
 
 // Mount routes
 app.use("/api/setter", setterRoutes);
