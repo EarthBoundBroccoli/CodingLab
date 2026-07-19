@@ -586,29 +586,22 @@ export const submitToContest = async (req, res) => {
             }
         }
 
-        // 3. Update Contest Participant Stats if first AC
+        // 3. Update Contest Participant Stats if not yet solved
         const participant = contest.participants[participantIndex];
         const alreadySolvedInContest = participant.solved.some(id => id.toString() === problemId.toString());
 
-        if (evaluationVerdict === 'AC' && !alreadySolvedInContest) {
-            // Calculate penalty: elapsed time in minutes from contest start
-            const elapsedMinutes = Math.round((new Date() - contest.startTime) / 60000);
-            
-            // Count previous wrong attempts for this problem in this contest
-            const wrongAttempts = await Submission.countDocuments({
-                userId,
-                problemId,
-                contestId,
-                verdict: { $ne: 'Accepted' }
-            });
-
-            const penaltyForProblem = elapsedMinutes + (wrongAttempts * 20);
-
-            participant.solved.push(problemId);
-            participant.score += 100; // 100 points per problem
-            participant.penalty += penaltyForProblem;
-
-            await contest.save();
+        if (!alreadySolvedInContest) {
+            if (evaluationVerdict === 'AC') {
+                const elapsedMinutes = Math.round((new Date() - contest.startTime) / 60000);
+                participant.solved.push(problemId);
+                participant.score += 100; // 100 points per problem
+                participant.penalty += elapsedMinutes;
+                await contest.save();
+            } else {
+                // Wrong Answer / non-AC attempt adds 20 minutes penalty immediately
+                participant.penalty += 20;
+                await contest.save();
+            }
         }
 
         // 4. Update Student Stats generally
@@ -663,7 +656,9 @@ export const submitToContest = async (req, res) => {
             evaluationVerdict,
             timeTaken: Math.round(cpuTimeMs) || 0,
             memoryUsed: memory || 0,
-            compileOutput: dbVerdict === 'Compilation Error' ? jdoodleOutput : ""
+            compileOutput: dbVerdict === 'Compilation Error' ? jdoodleOutput : "",
+            score: participant.score,
+            penalty: participant.penalty
         });
     } catch (error) {
         console.error("Contest submission evaluation error:", error);

@@ -14,6 +14,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import BecomeSetter from "./pages/BecomeSetter";
 import AddProblem from "./pages/AddProblem";
 import ProblemWorkspace from "./pages/ProblemWorkspace";
+import ContestProblem from "./pages/ContestProblem";
 import Navbar from "./components/Navbar";
 import Inbox from "./pages/Inbox";
 import Leaderboard from "./pages/Leaderboard";
@@ -75,6 +76,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <ContestDetail />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/contest/:contestId/problem/:problemId" 
+            element={
+              <ProtectedRoute>
+                <ContestProblem />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/contests/:contestId/problem/:problemId" 
+            element={
+              <ProtectedRoute>
+                <ContestProblem />
               </ProtectedRoute>
             } 
           />

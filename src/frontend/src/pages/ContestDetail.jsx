@@ -1,12 +1,9 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
-import Editor from "@monaco-editor/react";
-import axios from "axios";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { getBackendURL, useSession } from "../lib/auth-client";
-import { renderMarkdown } from "../lib/markdown";
 import {
   Calendar, Clock, Trophy, Users, AlertCircle, ArrowLeft,
-  Loader2, Play, Send, ChevronDown, ChevronUp, Check, X
+  Play, Check
 } from "lucide-react";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -38,16 +35,13 @@ const getDurationText = (startTime, endTime) => {
 const difficultyBadge = (d) =>
   d === "Easy" ? "bg-emerald-300" : d === "Medium" ? "bg-amber-300" : "bg-rose-300";
 
-const boilerplates = {
-  cpp: '#include <iostream>\nusing namespace std;\nint main() {\n    // Write your code here\n    return 0;\n}',
-  python: '# Write your code here\ndef solve():\n    pass\n\nif __name__ == "__main__":\n    solve()',
-  java: 'import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}'
-};
+
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 const ContestDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data: session } = useSession();
 
   // Data state
@@ -57,19 +51,8 @@ const ContestDetail = () => {
   const [error, setError] = useState("");
   const [timeRemaining, setTimeRemaining] = useState("");
   const [registering, setRegistering] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [toast, setToast] = useState(null);
-
-  // Editor state
-  const [selectedProblem, setSelectedProblem] = useState(null);
-  const [language, setLanguage] = useState("cpp");
-  const [codeValue, setCodeValue] = useState(boilerplates.cpp);
-  const prevLanguage = useRef("cpp");
-  const [customInput, setCustomInput] = useState("");
-  const [activeConsoleTab, setActiveConsoleTab] = useState("input");
-  const [executionResult, setExecutionResult] = useState(null);
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isRunningSandbox, setIsRunningSandbox] = useState(false);
 
   // Track solved problems in this contest for the current user
   const [solvedProblemIds, setSolvedProblemIds] = useState(new Set());
@@ -133,7 +116,13 @@ const ContestDetail = () => {
 
   useEffect(() => {
     loadData();
-  }, [id]);
+    const interval = setInterval(() => {
+      if (contest && contest.status === "Ongoing") {
+        fetchLeaderboard();
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [id, contest?.status]);
 
   // Timer logic
   useEffect(() => {
@@ -164,15 +153,7 @@ const ContestDetail = () => {
     return () => clearInterval(interval);
   }, [contest]);
 
-  // Language toggle → update boilerplate
-  useEffect(() => {
-    if (prevLanguage.current !== language) {
-      if (boilerplates[language]) {
-        setCodeValue(boilerplates[language]);
-      }
-      prevLanguage.current = language;
-    }
-  }, [language]);
+
 
   // ─── Registration ───────────────────────────────────────────────────────────
 
@@ -186,6 +167,7 @@ const ContestDetail = () => {
       });
       if (response.ok) {
         showToast("Registered successfully!");
+        setShowConfirmModal(false);
         await fetchContestDetails();
         await fetchLeaderboard();
       } else {
@@ -200,142 +182,13 @@ const ContestDetail = () => {
     }
   };
 
-  // ─── Code Execution ────────────────────────────────────────────────────────
-
-  const handleEditorBeforeMount = (monaco) => {
-    monaco.editor.defineTheme("codinglab-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#020617",
-        "editor.lineHighlightBackground": "#0f172a",
-        "editorLineNumber.foreground": "#475569",
-        "editorLineNumber.activeForeground": "#10b981",
-      },
-    });
-  };
-
-  const handleRunCode = async () => {
-    setIsRunningSandbox(true);
-    setIsCompiling(true);
-    setActiveConsoleTab("output");
-    setExecutionResult(null);
-
-    try {
-      const response = await axios.post(`${getBackendURL()}/api/submissions/run`, {
-        code: codeValue,
-        language: language,
-        customInput: customInput
-      }, {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true
-      });
-
-      if (response.status === 200) {
-        setExecutionResult({
-          output: response.data.output,
-          statusCode: response.data.statusCode,
-          memory: response.data.memory,
-          cpuTime: response.data.cpuTime,
-          isError: false
-        });
-      } else {
-        setExecutionResult({
-          output: `Execution failed with status code ${response.status}`,
-          isError: true
-        });
-      }
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || "Unknown error";
-      setExecutionResult({ output: errMsg, isError: true });
-    } finally {
-      setIsCompiling(false);
-      setIsRunningSandbox(false);
-    }
-  };
-
-  const handleSubmitCode = async () => {
-    if (!selectedProblem) return;
-    setIsCompiling(true);
-    setIsEvaluating(true);
-    setActiveConsoleTab("output");
-    setExecutionResult(null);
-
-    try {
-      const response = await axios.post(
-        `${getBackendURL()}/api/contests/${id}/submit`,
-        {
-          problemId: selectedProblem._id,
-          code: codeValue,
-          language: language
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-          withCredentials: true
-        }
-      );
-
-      if (response.status === 200) {
-        const { verdict, timeTaken, memoryUsed, compileOutput, evaluationVerdict } = response.data;
-        const displayOutput = verdict === "Accepted"
-          ? `✅ Verdict: ACCEPTED (AC)\n\nAll test cases passed successfully!`
-          : `❌ Verdict: ${verdict.toUpperCase()}\n\n${compileOutput || "One or more test cases failed or resource limits exceeded."}`;
-
-        setExecutionResult({
-          output: displayOutput,
-          statusCode: verdict === "Accepted" ? 0 : 1,
-          memory: memoryUsed,
-          cpuTime: (timeTaken / 1000).toFixed(2),
-          isError: verdict !== "Accepted",
-          verdict: evaluationVerdict
-        });
-
-        // If AC, mark this problem as solved locally and refresh data
-        if (evaluationVerdict === "AC") {
-          setSolvedProblemIds(prev => new Set([...prev, selectedProblem._id.toString()]));
-          showToast("🎉 Accepted! +100 points");
-          // Refresh leaderboard
-          fetchLeaderboard();
-          fetchContestDetails();
-        } else {
-          showToast(`Verdict: ${verdict}`);
-        }
-      } else {
-        setExecutionResult({
-          output: `Submission failed with status code ${response.status}`,
-          isError: true
-        });
-      }
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || "Unknown error";
-      const compileOutput = err.response?.data?.compileOutput || "";
-      setExecutionResult({
-        output: `${errMsg}\n${compileOutput}`,
-        isError: true
-      });
-      showToast(errMsg);
-    } finally {
-      setIsCompiling(false);
-      setIsEvaluating(false);
-    }
-  };
-
-  // ─── Select a problem to solve ─────────────────────────────────────────────
-
-  const handleSelectProblem = (problem) => {
-    if (selectedProblem?._id === problem._id) {
-      // Toggle off
-      setSelectedProblem(null);
-      setExecutionResult(null);
+  const handleSolveProblem = (problem) => {
+    const isReg = session && contest.participants.some(p => p.userId === session.user.id || p.userId?._id === session.user.id);
+    if (!isReg && contest.status === "Ongoing") {
+      showToast("Please register for this contest to solve problems");
       return;
     }
-    setSelectedProblem(problem);
-    setExecutionResult(null);
-    setActiveConsoleTab("input");
-    setCustomInput("");
-    // Reset code to boilerplate
-    setCodeValue(boilerplates[language]);
+    navigate(`/contest/${id}/problem/${problem._id}`);
   };
 
   // ─── Loading / Error States ─────────────────────────────────────────────────
@@ -421,7 +274,7 @@ const ContestDetail = () => {
 
           {!isRegistered && !isEnded && (
             <button
-              onClick={handleRegister}
+              onClick={() => setShowConfirmModal(true)}
               disabled={registering}
               className="btn w-full md:w-48 bg-emerald-400 text-black border-4 border-black rounded-none font-black uppercase hover:bg-emerald-500 shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none cursor-pointer"
             >
@@ -460,10 +313,9 @@ const ContestDetail = () => {
               ) : contest.problems && contest.problems.length > 0 ? (
                 contest.problems.map((problem, index) => {
                   const isSolved = solvedProblemIds.has(problem._id?.toString());
-                  const isSelected = selectedProblem?._id === problem._id;
                   return (
-                    <div key={problem._id} className={`transition-all ${isSelected ? "bg-emerald-50" : "hover:bg-slate-50"}`}>
-                      <div className="p-5 flex justify-between items-center group cursor-pointer" onClick={() => isOngoing ? handleSelectProblem(problem) : null}>
+                    <div key={problem._id} className="transition-all hover:bg-slate-50">
+                      <div className="p-5 flex justify-between items-center group cursor-pointer" onClick={() => isOngoing ? handleSolveProblem(problem) : null}>
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-3">
                             <span className="font-black text-slate-400 text-xl font-spartan">
@@ -493,18 +345,23 @@ const ContestDetail = () => {
                           {isOngoing && !isSolved && (
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); handleSelectProblem(problem); }}
-                              className={`btn btn-sm border-2 border-black rounded-none font-black uppercase cursor-pointer ${
-                                isSelected
-                                  ? "bg-slate-900 text-white hover:bg-slate-700"
-                                  : "bg-black text-white hover:bg-emerald-400 hover:text-black"
-                              }`}
+                              onClick={(e) => { e.stopPropagation(); handleSolveProblem(problem); }}
+                              className="btn btn-sm bg-black text-white border-2 border-black rounded-none font-black uppercase hover:bg-emerald-400 hover:text-black cursor-pointer"
                             >
-                              {isSelected ? <><ChevronUp size={14} /> Close</> : <><ChevronDown size={14} /> Solve</>}
+                              <Play size={14} /> Solve
                             </button>
                           )}
                           {isOngoing && isSolved && (
-                            <span className="text-emerald-600 font-black text-xs uppercase">+100 pts</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-emerald-600 font-black text-xs uppercase">+100 pts</span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleSolveProblem(problem); }}
+                                className="btn btn-sm bg-slate-200 text-black border-2 border-black rounded-none font-black uppercase hover:bg-slate-300 cursor-pointer"
+                              >
+                                View
+                              </button>
+                            </div>
                           )}
                           {!isOngoing && (
                             <Link
@@ -526,169 +383,6 @@ const ContestDetail = () => {
               )}
             </div>
           </div>
-
-          {/* ─── Inline Code Editor (when problem selected + contest Ongoing) ── */}
-          {selectedProblem && isOngoing && isRegistered && (
-            <div className="bg-white border-4 border-black neo-brutal overflow-hidden">
-              {/* Editor Header */}
-              <div className="bg-slate-900 p-4 border-b-4 border-black flex flex-wrap justify-between items-center gap-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-black uppercase text-white font-spartan tracking-tight">
-                    Solving: {selectedProblem.title}
-                  </h3>
-                  <span className={`badge rounded-none border-2 border-black font-black uppercase text-[8px] text-black ${difficultyBadge(selectedProblem.difficulty)}`}>
-                    {selectedProblem.difficulty}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="p-2 border-2 border-black bg-white font-black uppercase text-xs outline-none rounded-none focus:bg-emerald-400 focus:text-black cursor-pointer transition-colors text-black"
-                  >
-                    <option value="cpp">C++ (GCC 20)</option>
-                    <option value="java">Java (OpenJDK 17)</option>
-                    <option value="python">Python (3.10)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Problem Statement Collapsible */}
-              <ProblemStatementPanel problem={selectedProblem} />
-
-              {/* Monaco Editor */}
-              <div className="h-[400px] bg-[#020617]">
-                <Editor
-                  height="100%"
-                  theme="codinglab-dark"
-                  language={language}
-                  value={codeValue}
-                  onChange={(value) => setCodeValue(value || "")}
-                  beforeMount={handleEditorBeforeMount}
-                  loading={
-                    <div className="flex flex-col items-center justify-center h-full bg-[#020617] text-slate-400 space-y-3 font-mono">
-                      <Loader2 className="animate-spin text-emerald-400" size={32} />
-                      <span className="text-xs uppercase font-black tracking-widest">Loading Editor...</span>
-                    </div>
-                  }
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    fontFamily: "Fira Code, Courier New, monospace",
-                    automaticLayout: true,
-                    padding: { top: 12, bottom: 12 },
-                  }}
-                />
-              </div>
-
-              {/* Console Panel */}
-              <div className="bg-[#020617] border-t-4 border-black">
-                {/* Tab Header */}
-                <div className="flex bg-slate-900 border-b-2 border-black text-xs font-black uppercase tracking-wider select-none">
-                  <button
-                    onClick={() => setActiveConsoleTab("input")}
-                    className={`px-4 py-2.5 border-r-2 border-black transition-colors cursor-pointer ${
-                      activeConsoleTab === "input"
-                        ? "bg-emerald-400 text-black"
-                        : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                    }`}
-                  >
-                    Custom Input
-                  </button>
-                  <button
-                    onClick={() => setActiveConsoleTab("output")}
-                    className={`px-4 py-2.5 border-r-2 border-black transition-colors cursor-pointer ${
-                      activeConsoleTab === "output"
-                        ? "bg-emerald-400 text-black"
-                        : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                    }`}
-                  >
-                    Result Output
-                  </button>
-                </div>
-
-                {/* Tab Body */}
-                <div className="p-4 min-h-[120px] max-h-[200px] overflow-auto custom-scrollbar">
-                  {activeConsoleTab === "input" ? (
-                    <textarea
-                      value={customInput}
-                      onChange={(e) => setCustomInput(e.target.value)}
-                      placeholder="Provide custom standard input (stdin)..."
-                      className="w-full h-full min-h-[80px] bg-transparent border-none outline-none resize-none font-mono text-sm text-slate-100 placeholder-slate-600"
-                    />
-                  ) : (
-                    <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap select-text">
-                      {isCompiling ? (
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <Loader2 className="animate-spin text-emerald-400" size={16} />
-                          <span className="text-xs uppercase font-black tracking-widest text-emerald-400 animate-pulse">
-                            {isEvaluating ? "Evaluating test cases..." : "Compiling..."}
-                          </span>
-                        </div>
-                      ) : executionResult ? (
-                        <div className="space-y-3">
-                          <div className={executionResult.isError ? "text-rose-400 font-bold" : "text-slate-100"}>
-                            {executionResult.output || "Empty output."}
-                          </div>
-                          {!executionResult.isError && (
-                            <div className="flex flex-wrap gap-2 border-t border-slate-800 pt-3">
-                              <span className="bg-slate-800 text-slate-300 px-2 py-0.5 text-xs font-bold border border-slate-700">
-                                Memory: {executionResult.memory || 0} KB
-                              </span>
-                              <span className="bg-slate-800 text-slate-300 px-2 py-0.5 text-xs font-bold border border-slate-700">
-                                CPU: {executionResult.cpuTime || "0.00"}s
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-slate-500 italic text-xs">
-                          Run or submit code to see results...
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Bar */}
-              <div className="bg-white border-t-4 border-black p-4 flex flex-wrap justify-between items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedProblem(null); setExecutionResult(null); }}
-                  className="px-3 py-2 border-2 border-black bg-slate-100 font-black uppercase text-xs hover:bg-slate-200 cursor-pointer text-black"
-                >
-                  ← Close Editor
-                </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleRunCode}
-                    disabled={isCompiling || isEvaluating || isRunningSandbox}
-                    className={`px-4 py-2 border-4 border-black bg-white font-black uppercase text-xs shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 text-black ${
-                      isCompiling || isEvaluating || isRunningSandbox
-                        ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
-                        : "hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_black] hover:bg-slate-100 cursor-pointer"
-                    }`}
-                  >
-                    {isRunningSandbox ? <><Loader2 className="animate-spin" size={14} /> Compiling...</> : <><Play size={14} /> Run Code</>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmitCode}
-                    disabled={isCompiling || isEvaluating || isRunningSandbox}
-                    className={`px-4 py-2 border-4 border-black bg-slate-900 text-white font-black uppercase text-xs shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 ${
-                      isCompiling || isEvaluating || isRunningSandbox
-                        ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
-                        : "hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_black] hover:bg-emerald-400 hover:text-black cursor-pointer"
-                    }`}
-                  >
-                    {isEvaluating ? <><Loader2 className="animate-spin" size={14} /> Evaluating...</> : <><Send size={14} /> Submit</>}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ─── Right: Leaderboard (40%) ──────────────────────────────── */}
@@ -769,96 +463,36 @@ const ContestDetail = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
-};
 
-// ─── Problem Statement Collapsible Sub-Component ────────────────────────────
-
-const ProblemStatementPanel = ({ problem }) => {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="border-b-2 border-black">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex justify-between items-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-200"
-      >
-        <span className="text-xs font-black uppercase tracking-widest text-slate-600">
-          Problem Statement & Details
-        </span>
-        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-
-      {expanded && (
-        <div className="p-5 bg-white space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
-          {/* Statement */}
-          {problem.statement && (
-            <div>
-              <h4 className="text-[10px] font-black uppercase text-slate-400 mb-2">Statement</h4>
-              <div
-                className="prose max-w-none text-black leading-relaxed font-medium text-sm"
-                dangerouslySetInnerHTML={{ __html: typeof renderMarkdown === 'function' ? renderMarkdown(problem.statement) : problem.statement }}
-              />
+      {/* Registration Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white border-4 border-black p-6 neo-brutal max-w-md w-full shadow-[6px_6px_0px_0px_black] space-y-4">
+            <h3 className="text-xl font-black uppercase font-spartan text-black">
+              Confirm Registration
+            </h3>
+            <p className="font-bold text-slate-700 text-sm">
+              Do you want to participate in <span className="text-black font-black">{contest.name}</span>?
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={registering}
+                className="px-4 py-2 bg-slate-200 text-black border-2 border-black font-black uppercase text-xs hover:bg-slate-300 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRegister}
+                disabled={registering}
+                className="px-4 py-2 bg-emerald-400 text-black border-2 border-black font-black uppercase text-xs hover:bg-emerald-500 shadow-[2px_2px_0px_0px_black] cursor-pointer flex items-center gap-1"
+              >
+                {registering ? "Registering..." : "Yes, Register"}
+              </button>
             </div>
-          )}
-
-          {/* Input/Output Format */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {problem.inputFormat && (
-              <div className="p-3 border-2 border-black bg-slate-50">
-                <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Input Format</span>
-                <p className="text-xs font-bold text-slate-700">{problem.inputFormat}</p>
-              </div>
-            )}
-            {problem.outputFormat && (
-              <div className="p-3 border-2 border-black bg-slate-50">
-                <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Output Format</span>
-                <p className="text-xs font-bold text-slate-700">{problem.outputFormat}</p>
-              </div>
-            )}
           </div>
-
-          {/* Limits */}
-          <div className="flex gap-4">
-            {problem.timeLimit && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-black uppercase text-slate-400">Time:</span>
-                <span className="font-black bg-white border-2 border-black px-2 py-0.5 text-black">{problem.timeLimit}ms</span>
-              </div>
-            )}
-            {problem.memoryLimit && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-black uppercase text-slate-400">Memory:</span>
-                <span className="font-black bg-white border-2 border-black px-2 py-0.5 text-black">{problem.memoryLimit}MB</span>
-              </div>
-            )}
-          </div>
-
-          {/* Sample Cases */}
-          {problem.samples && problem.samples.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase text-slate-400">Sample Cases</h4>
-              {problem.samples.map((sample, idx) => (
-                <div key={idx} className="border-2 border-black bg-slate-50 overflow-hidden">
-                  <div className="bg-slate-800 text-white px-3 py-1.5 text-[9px] font-black uppercase tracking-wider">
-                    Case #{idx + 1}
-                  </div>
-                  <div className="grid grid-cols-2 divide-x-2 divide-black">
-                    <div className="p-3">
-                      <span className="text-[8px] font-black uppercase text-slate-400 block mb-1">Input</span>
-                      <pre className="font-mono text-xs bg-white border border-slate-300 p-2 text-slate-800 whitespace-pre overflow-x-auto">{sample.input}</pre>
-                    </div>
-                    <div className="p-3">
-                      <span className="text-[8px] font-black uppercase text-slate-400 block mb-1">Output</span>
-                      <pre className="font-mono text-xs bg-white border border-slate-300 p-2 text-slate-800 whitespace-pre overflow-x-auto">{sample.output}</pre>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
