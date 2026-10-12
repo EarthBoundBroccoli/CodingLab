@@ -11,7 +11,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import { toNodeHandler } from "better-auth/node";
-import { auth } from "./lib/auth.js";
+import { auth, adminBypass } from "./lib/auth.js";
 
 import { User } from "./models/User.js";
 
@@ -22,6 +22,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import submissionRoutes from "./routes/submissionRoutes.js";
 import leaderboardRoutes from "./routes/leaderboardRoutes.js";
+import contestRoutes from "./routes/contestRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -53,11 +54,11 @@ app.use(cors({
 
 app.use(express.json());
 
+// Global admin bypass middleware — pre-sets req.user from x-admin-token header
+app.use(adminBypass);
+
 // Better Auth handler
 app.all("/api/auth/*splat", toNodeHandler(auth));
-
-
-
 
 // Mount routes
 app.use("/api/setter", setterRoutes);
@@ -67,6 +68,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/contests", contestRoutes);
 
 
 

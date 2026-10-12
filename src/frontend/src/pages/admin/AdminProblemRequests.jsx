@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBackendURL } from "../../lib/auth-client";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Search, Filter, X } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
@@ -124,8 +124,13 @@ const AdminProblemRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeDifficulty, setActiveDifficulty] = useState(null);
+  const [activeStatus, setActiveStatus] = useState(null);
+  const [activeTags, setActiveTags] = useState([]);
+  const [sortOrder, setSortOrder] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -154,23 +159,63 @@ const AdminProblemRequests = () => {
     fetchProblems();
   }, []);
 
-  const approvedProblems = useMemo(
-    () => requests.filter((r) => r.status.toLowerCase() === "approved"),
+  const pendingProblems = useMemo(
+    () => requests.filter((r) => r.status.toLowerCase() === "pending"),
     [requests]
   );
 
-  const pendingRejectedProblems = useMemo(
-    () => requests.filter((r) => r.status.toLowerCase() === "pending" || r.status.toLowerCase() === "rejected"),
+  const rejectedProblems = useMemo(
+    () => requests.filter((r) => r.status.toLowerCase() === "rejected"),
     [requests]
   );
 
-  const tabProblems = activeTab === "all" ? approvedProblems : pendingRejectedProblems;
+  const availableTags = useMemo(() => {
+    const tagSet = new Set();
+    requests.forEach((prob) => {
+      if (Array.isArray(prob.tags)) {
+        prob.tags.forEach((t) => tagSet.add(t));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [requests]);
+
+  const toggleTag = (tag) => {
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const resetFilters = () => {
+    setActiveDifficulty(null);
+    setActiveStatus(null);
+    setActiveTags([]);
+    setSortOrder(null);
+  };
 
   const filteredProblems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return tabProblems;
-    return tabProblems.filter((r) => r.title.toLowerCase().includes(query));
-  }, [tabProblems, searchQuery]);
+    let base = requests;
+    if (activeTab === "pending") {
+      base = pendingProblems;
+    } else if (activeTab === "rejected") {
+      base = rejectedProblems;
+    }
+
+    let result = base.filter((prob) => {
+      const matchesSearch = prob.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
+      const matchesDifficulty = !activeDifficulty || prob.difficulty.toLowerCase() === activeDifficulty.toLowerCase();
+      const matchesStatus = !activeStatus || prob.status.toLowerCase() === activeStatus.toLowerCase();
+      const matchesTags = activeTags.length === 0 || activeTags.every((t) => Array.isArray(prob.tags) && prob.tags.includes(t));
+      return matchesSearch && matchesDifficulty && matchesStatus && matchesTags;
+    });
+
+    if (sortOrder === "asc") {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortOrder === "desc") {
+      result.sort((a, b) => b.title.localeCompare(a.title));
+    }
+
+    return result;
+  }, [requests, activeTab, pendingProblems, rejectedProblems, searchQuery, activeDifficulty, activeStatus, activeTags, sortOrder]);
 
   const totalPages = Math.ceil(filteredProblems.length / PAGE_SIZE) || 0;
   const safePage = totalPages === 0 ? 1 : Math.min(currentPage, totalPages);
@@ -192,7 +237,7 @@ const AdminProblemRequests = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, activeDifficulty, activeStatus, activeTags, sortOrder]);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -274,31 +319,157 @@ const AdminProblemRequests = () => {
           </p>
         </div>
 
-        <div className="p-4 border-b-4 border-black bg-slate-50 space-y-3">
+        <div className="p-4 border-b-4 border-black bg-slate-50 space-y-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("all")}
               className={tabClass("all")}
             >
-              All Problems ({approvedProblems.length})
+              All Problems ({requests.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("pending")}
               className={tabClass("pending")}
             >
-              Pending/Rejected ({pendingRejectedProblems.length})
+              Pending ({pendingProblems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("rejected")}
+              className={tabClass("rejected")}
+            >
+              Rejected ({rejectedProblems.length})
             </button>
           </div>
 
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title..."
-            className="w-full p-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100 text-black"
-          />
+          <div className="flex items-center gap-2 relative">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by title..."
+                className="w-full pl-12 pr-4 py-3 border-4 border-black font-black uppercase outline-none rounded-none focus:bg-emerald-100 text-black text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`btn rounded-none border-4 border-black p-3 transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none ${
+                showFilters ? "bg-black text-white hover:bg-black" : "bg-white text-black hover:bg-emerald-400"
+              } cursor-pointer`}
+            >
+              {showFilters ? <X size={24} /> : <Filter size={24} />}
+            </button>
+          </div>
+
+          {showFilters && (
+            <div className="bg-white border-4 border-black neo-brutal p-6 md:p-8 space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {/* Difficulty Column */}
+                <div className="space-y-3">
+                  <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-1 text-sm">Difficulty</h4>
+                  <div className="flex flex-col gap-2">
+                    {["Easy", "Medium", "Hard"].map((diff) => (
+                      <button
+                        key={diff}
+                        type="button"
+                        onClick={() => setActiveDifficulty(activeDifficulty === diff ? null : diff)}
+                        className={`text-left font-bold uppercase text-xs p-2.5 border-2 border-black transition-colors cursor-pointer ${
+                          activeDifficulty === diff ? "bg-emerald-400" : "hover:bg-slate-100"
+                        }`}
+                      >
+                        {diff}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status Column */}
+                <div className="space-y-3">
+                  <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-1 text-sm">Status</h4>
+                  <div className="flex flex-col gap-2">
+                    {["Pending", "Approved", "Rejected"].map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setActiveStatus(activeStatus === st ? null : st)}
+                        className={`text-left font-bold uppercase text-xs p-2.5 border-2 border-black transition-colors cursor-pointer ${
+                          activeStatus === st ? "bg-emerald-400" : "hover:bg-slate-100"
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tags Column */}
+                <div className="space-y-3">
+                  <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-1 text-sm">Tags</h4>
+                  <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                    {availableTags.length === 0 ? (
+                      <p className="text-[10px] font-bold text-slate-400 uppercase italic">No tags available</p>
+                    ) : (
+                      availableTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className={`text-left font-bold uppercase text-[10px] p-2 border-2 border-black transition-colors cursor-pointer ${
+                            activeTags.includes(tag) ? "bg-emerald-400" : "hover:bg-slate-100"
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Alphabet Column */}
+                <div className="space-y-3">
+                  <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-1 text-sm">Alphabetical Sort</h4>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSortOrder(sortOrder === "asc" ? null : "asc")}
+                      className={`text-left font-bold uppercase text-xs p-2.5 border-2 border-black transition-colors cursor-pointer ${
+                        sortOrder === "asc" ? "bg-emerald-400" : "hover:bg-slate-100"
+                      }`}
+                    >
+                      Ascending (A-Z)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSortOrder(sortOrder === "desc" ? null : "desc")}
+                      className={`text-left font-bold uppercase text-xs p-2.5 border-2 border-black transition-colors cursor-pointer ${
+                        sortOrder === "desc" ? "bg-emerald-400" : "hover:bg-slate-100"
+                      }`}
+                    >
+                      Descending (Z-A)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t-4 border-black flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-xs font-black uppercase underline hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  Clear All Filters
+                </button>
+                <span className="text-xs font-black uppercase opacity-60">
+                  {filteredProblems.length} results found
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {loading ? (

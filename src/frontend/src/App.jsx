@@ -6,6 +6,7 @@ import About from "./pages/About";
 import Support from "./pages/Support";
 import Problems from "./pages/Problems";
 import Contests from "./pages/Contests";
+import ContestDetail from "./pages/ContestDetail";
 import PreviousContests from "./pages/PreviousContests";
 import Growth from "./pages/Growth";
 import AdminLogin from "./pages/AdminLogin";
@@ -13,6 +14,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import BecomeSetter from "./pages/BecomeSetter";
 import AddProblem from "./pages/AddProblem";
 import ProblemWorkspace from "./pages/ProblemWorkspace";
+import ContestProblem from "./pages/ContestProblem";
 import Navbar from "./components/Navbar";
 import Inbox from "./pages/Inbox";
 import Leaderboard from "./pages/Leaderboard";
@@ -66,6 +68,30 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Contests />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/contests/:id" 
+            element={
+              <ProtectedRoute>
+                <ContestDetail />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/contest/:contestId/problem/:problemId" 
+            element={
+              <ProtectedRoute>
+                <ContestProblem />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/contests/:contestId/problem/:problemId" 
+            element={
+              <ProtectedRoute>
+                <ContestProblem />
               </ProtectedRoute>
             } 
           />

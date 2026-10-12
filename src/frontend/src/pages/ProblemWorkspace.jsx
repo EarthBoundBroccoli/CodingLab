@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
+import { useParams, Link, useLocation, useSearchParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import axios from "axios";
@@ -22,6 +22,8 @@ const boilerplates = {
 const ProblemWorkspace = () => {
   const { id } = useParams();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const contestId = searchParams.get("contestId");
   const prefillCode = location.state?.prefillCode;
   const prefillLanguage = location.state?.prefillLanguage;
 
@@ -164,12 +166,16 @@ const ProblemWorkspace = () => {
     setExecutionResult(null);
 
     try {
-      console.log("Submitting code to compilation and grading backend...");
-      const response = await axios.post(`${getBackendURL()}/api/submissions/submit`, {
-        problemId: id,
-        code: codeValue,
-        language: language
-      }, {
+      // Route to contest submission endpoint if in contest mode
+      const submitUrl = contestId
+        ? `${getBackendURL()}/api/contests/${contestId}/submit`
+        : `${getBackendURL()}/api/submissions/submit`;
+      const submitBody = contestId
+        ? { problemId: id, code: codeValue, language: language }
+        : { problemId: id, code: codeValue, language: language };
+
+      console.log(`Submitting code to ${contestId ? 'contest' : 'standard'} grading backend...`);
+      const response = await axios.post(submitUrl, submitBody, {
         headers: {
           "Content-Type": "application/json"
         },
@@ -254,8 +260,8 @@ const ProblemWorkspace = () => {
               submissionStatus === 'TLE' ? 'bg-amber-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
               'bg-white'
             }`}>
-              <Link to="/problems" className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-black transition-colors">
-                <ChevronLeft size={16} /> Back to Problems
+              <Link to={contestId ? `/contests/${contestId}` : "/problems"} className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-black transition-colors">
+                <ChevronLeft size={16} /> {contestId ? "Back to Contest" : "Back to Problems"}
               </Link>
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tight font-spartan text-black">

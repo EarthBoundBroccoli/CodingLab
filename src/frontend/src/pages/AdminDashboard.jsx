@@ -1,28 +1,7 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { getBackendURL } from "../lib/auth-client";
 import { AlertCircle, Loader2 } from "lucide-react";
-
-const createUpcomingContests = () => [
-  {
-    id: 1,
-    name: "CodingLab Round #121",
-    startTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000),
-    duration: "2h",
-  },
-  {
-    id: 2,
-    name: "Beginner Blitz",
-    startTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
-    duration: "1h 30m",
-  },
-  {
-    id: 3,
-    name: "Graph Masters",
-    startTime: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000),
-    duration: "3h",
-  },
-];
 
 const badgeForDifficulty = (difficulty) => {
   if (difficulty === "Easy") return "bg-emerald-300";
@@ -60,19 +39,42 @@ const CountdownTimer = ({ targetDate }) => {
 };
 
 const SectionCard = ({ title, headerClass, children }) => (
-  <div className="bg-white neo-brutal rounded-none overflow-hidden h-full flex flex-col">
+  <div className="bg-white neo-brutal rounded-none overflow-hidden h-full flex flex-col border-4 border-black">
     <div className={`${headerClass} p-3 border-b-4 border-black`}>
       <h2 className="text-xs font-black uppercase tracking-widest text-black">
         {title}
       </h2>
     </div>
-    <div className="p-4 flex-1">{children}</div>
+    <div className="p-4 flex-1 flex flex-col justify-between">{children}</div>
   </div>
 );
 
+const formatDateTime = (value) => {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getDurationText = (startTime, endTime) => {
+  if (!startTime || !endTime) return "--";
+  const diffMs = new Date(endTime).getTime() - new Date(startTime).getTime();
+  if (diffMs <= 0) return "--";
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [upcomingContests] = useState(createUpcomingContests);
   const [toast, setToast] = useState(null);
   
   // Dynamic DB state
@@ -83,6 +85,7 @@ const AdminDashboard = () => {
     recentProblemRequests: [],
     topContributors: []
   });
+  const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedProblem, setSelectedProblem] = useState(null);
@@ -94,7 +97,6 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
       const response = await fetch(`${getBackendURL()}/api/admin/dashboard-summary`, {
         headers: {
           "x-admin-token": "admin123"
@@ -111,13 +113,32 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error("Error loading dashboard data:", err);
       setError("Error connecting to backend API");
-    } finally {
-      setLoading(false);
     }
   };
 
+  const fetchContests = async () => {
+    try {
+      const response = await fetch(`${getBackendURL()}/api/contests`, {
+        credentials: "include"
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setContests(data);
+      }
+    } catch (err) {
+      console.error("Error fetching contests:", err);
+    }
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    setError("");
+    await Promise.all([fetchDashboardData(), fetchContests()]);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    fetchDashboardData();
+    loadData();
   }, []);
 
   const handleApprove = async (id) => {
@@ -177,6 +198,27 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEndContest = async (id) => {
+    try {
+      const response = await fetch(`${getBackendURL()}/api/contests/${id}/end`, {
+        method: "PUT",
+        headers: {
+          "x-admin-token": "admin123"
+        },
+        credentials: "include"
+      });
+      if (response.ok) {
+        showToast("Contest ended successfully");
+        fetchContests();
+      } else {
+        showToast("Failed to end contest");
+      }
+    } catch (err) {
+      console.error("Error ending contest:", err);
+      showToast("Error connecting to server");
+    }
+  };
+
   const quickActions = [
     { label: "Create Contest", path: "/admin/contests" },
     { label: "Setter Approvals", path: "/admin/setter-approvals" },
@@ -190,6 +232,22 @@ const AdminDashboard = () => {
     { label: "Active Today", value: 12, headerClass: "bg-amber-400" },
     { label: "Total Problems Pending", value: dashboardData.pendingProblems, headerClass: "bg-rose-300" },
   ];
+
+  const activeContestsCount = useMemo(() => {
+    return contests.filter(c => c.status === "Ongoing").length;
+  }, [contests]);
+
+  const upcomingContestsCount = useMemo(() => {
+    return contests.filter(c => c.status === "Upcoming").length;
+  }, [contests]);
+
+  const recentContests = useMemo(() => {
+    return contests.slice(0, 5);
+  }, [contests]);
+
+  const upcomingContestList = useMemo(() => {
+    return contests.filter(c => c.status === "Upcoming").slice(0, 3);
+  }, [contests]);
 
   if (loading) {
     return (
@@ -209,7 +267,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6 lg:space-y-8">
+    <div className="max-w-[1400px] mx-auto space-y-6 lg:space-y-8 text-black">
       {toast && (
         <div className="fixed right-4 bottom-4 z-50 bg-emerald-400 text-black border-4 border-black px-4 py-3 font-black uppercase text-xs shadow-[4px_4px_0px_0px_black]">
           {toast}
@@ -217,30 +275,127 @@ const AdminDashboard = () => {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white neo-brutal rounded-none overflow-hidden"
-          >
-            <div className={`${stat.headerClass} p-3 border-b-4 border-black`}>
+      <div className="space-y-4 lg:space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="bg-white neo-brutal border-4 border-black rounded-none overflow-hidden"
+            >
+              <div className={`${stat.headerClass} p-3 border-b-4 border-black`}>
+                <h2 className="text-xs font-black uppercase tracking-widest text-black">
+                  {stat.label}
+                </h2>
+              </div>
+              <div className="p-6 flex items-center justify-center">
+                <span className="text-5xl font-black bg-white border-4 border-black px-4 py-2 shadow-[4px_4px_0px_0px_black] text-black">
+                  {stat.value}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Contest Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+          <div className="bg-white neo-brutal border-4 border-black rounded-none overflow-hidden">
+            <div className="bg-emerald-300 p-3 border-b-4 border-black">
               <h2 className="text-xs font-black uppercase tracking-widest text-black">
-                {stat.label}
+                Active Contests
               </h2>
             </div>
             <div className="p-6 flex items-center justify-center">
-              <span className="text-5xl font-black bg-white border-4 border-black px-4 py-2 shadow-[4px_4px_0px_0px_black]">
-                {stat.value}
+              <span className="text-5xl font-black bg-white border-4 border-black px-4 py-2 shadow-[4px_4px_0px_0px_black] text-black">
+                {activeContestsCount}
               </span>
             </div>
           </div>
-        ))}
+
+          <div className="bg-white neo-brutal border-4 border-black rounded-none overflow-hidden">
+            <div className="bg-sky-300 p-3 border-b-4 border-black">
+              <h2 className="text-xs font-black uppercase tracking-widest text-black">
+                Upcoming Contests
+              </h2>
+            </div>
+            <div className="p-6 flex items-center justify-center">
+              <span className="text-5xl font-black bg-white border-4 border-black px-4 py-2 shadow-[4px_4px_0px_0px_black] text-black">
+                {upcomingContestsCount}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Contests Section */}
+      <div className="bg-white border-4 border-black neo-brutal overflow-hidden">
+        <div className="bg-emerald-400 p-4 border-b-4 border-black flex justify-between items-center">
+          <h2 className="text-xl lg:text-2xl font-black uppercase font-spartan text-black">Recent Contests</h2>
+          <Link
+            to="/admin/contests"
+            className="btn btn-xs bg-black text-white border-2 border-black rounded-none font-black uppercase hover:bg-white hover:text-black cursor-pointer"
+          >
+            View All
+          </Link>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="table w-full text-black">
+            <thead>
+              <tr className="border-b-2 border-black">
+                <th className="text-[10px] font-black uppercase text-black">Name</th>
+                <th className="text-[10px] font-black uppercase text-black">Start Time</th>
+                <th className="text-[10px] font-black uppercase text-black">Status</th>
+                <th className="text-[10px] font-black uppercase text-black">Participants</th>
+                <th className="text-[10px] font-black uppercase text-black text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentContests.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-6 font-bold uppercase text-xs text-slate-500">
+                    No contests found
+                  </td>
+                </tr>
+              ) : (
+                recentContests.map((contest) => (
+                  <tr key={contest._id || contest.id} className="border-b border-slate-200 hover:bg-slate-50">
+                    <td className="font-black uppercase text-xs text-black">{contest.name}</td>
+                    <td className="font-bold text-xs text-slate-700">{formatDateTime(contest.startTime)}</td>
+                    <td>
+                      <span className={`badge rounded-none border-2 border-black font-black uppercase text-[8px] text-black ${
+                        contest.status === "Upcoming" ? "bg-sky-300" :
+                        contest.status === "Ongoing" ? "bg-emerald-300" : "bg-slate-300"
+                      }`}>
+                        {contest.status}
+                      </span>
+                    </td>
+                    <td className="font-bold text-xs text-slate-700">{contest.participants?.length || 0} Registered</td>
+                    <td>
+                      <div className="flex justify-end">
+                        {contest.status === "Ongoing" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleEndContest(contest._id || contest.id)}
+                            className="btn btn-xs bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase hover:bg-amber-400 hover:text-black cursor-pointer"
+                          >
+                            End Contest
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400 uppercase italic">--</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Recent Problem Requests */}
         <SectionCard title="Recent Problem Requests" headerClass="bg-sky-400">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1">
             <table className="table w-full">
               <thead>
                 <tr className="border-b-2 border-black">
@@ -278,21 +433,21 @@ const AdminDashboard = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedProblem(req)}
-                            className="btn btn-xs bg-sky-300 border-2 border-black rounded-none font-black uppercase hover:bg-sky-200 cursor-pointer"
+                            className="btn btn-xs bg-sky-300 border-2 border-black rounded-none font-black uppercase hover:bg-sky-200 cursor-pointer text-black"
                           >
                             Review
                           </button>
                           <button
                             type="button"
                             onClick={() => handleApprove(req._id)}
-                            className="btn btn-xs bg-emerald-400 border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 cursor-pointer"
+                            className="btn btn-xs bg-emerald-400 border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 cursor-pointer text-black"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
                             onClick={() => handleReject(req._id)}
-                            className="btn btn-xs bg-white border-2 border-black rounded-none font-black uppercase hover:bg-rose-200 cursor-pointer"
+                            className="btn btn-xs bg-white border-2 border-black rounded-none font-black uppercase hover:bg-rose-200 cursor-pointer text-black"
                           >
                             Reject
                           </button>
@@ -308,7 +463,7 @@ const AdminDashboard = () => {
 
         {/* Top Contributors */}
         <SectionCard title="Top Contributors" headerClass="bg-emerald-400">
-          <ul className="space-y-2">
+          <ul className="space-y-2 flex-1">
             {dashboardData.topContributors.length === 0 ? (
               <li className="text-center py-6 font-bold uppercase text-xs text-slate-500">
                 No contributors yet
@@ -336,35 +491,39 @@ const AdminDashboard = () => {
 
         {/* Upcoming Contests */}
         <SectionCard title="Upcoming Contests" headerClass="bg-amber-400">
-          <div className="space-y-3">
-            {upcomingContests.map((contest) => (
-              <div
-                key={contest.id}
-                className="border-4 border-black p-3 bg-white space-y-2"
-              >
-                <h3 className="font-black uppercase text-sm text-black">{contest.name}</h3>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase text-black">
-                  <span className="bg-slate-100 border-2 border-black px-2 py-1">
-                    {contest.startTime.toLocaleString([], {
-                      month: "short",
-                      day: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                  <span className="bg-slate-100 border-2 border-black px-2 py-1">
-                    {contest.duration}
-                  </span>
-                  <CountdownTimer targetDate={contest.startTime} />
+          <div className="space-y-3 flex-1">
+            {upcomingContestList.length === 0 ? (
+              <p className="text-center font-bold uppercase text-xs text-slate-500 py-6">No upcoming contests scheduled</p>
+            ) : (
+              upcomingContestList.map((contest) => (
+                <div
+                  key={contest._id || contest.id}
+                  className="border-4 border-black p-3 bg-white space-y-2"
+                >
+                  <h3 className="font-black uppercase text-sm text-black">{contest.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase text-black">
+                    <span className="bg-slate-100 border-2 border-black px-2 py-1">
+                      {new Date(contest.startTime).toLocaleString([], {
+                        month: "short",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="bg-slate-100 border-2 border-black px-2 py-1">
+                      {getDurationText(contest.startTime, contest.endTime)}
+                    </span>
+                    <CountdownTimer targetDate={new Date(contest.startTime)} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </SectionCard>
 
         {/* Quick Actions */}
         <SectionCard title="Quick Actions" headerClass="bg-rose-300">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-full flex-1">
             {quickActions.map((action) => (
               <button
                 key={action.label}
