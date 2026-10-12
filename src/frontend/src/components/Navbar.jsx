@@ -139,8 +139,8 @@ const Navbar = () => {
                             </div>
                         </li>
                         <div className="divider my-0 h-1 bg-black"></div>
-                        <li><a className="font-bold hover:bg-emerald-400 transition-colors">Profile</a></li>
-                        <li><a className="font-bold hover:bg-emerald-400 transition-colors">Settings</a></li>
+                        <li><Link to="/profile" className="font-bold hover:bg-emerald-400 transition-colors">Profile</Link></li>
+                        <li><Link to="/settings" className="font-bold hover:bg-emerald-400 transition-colors">Settings</Link></li>
                         <div className="divider my-0 h-1 bg-black"></div>
                         <li>
                             <button 

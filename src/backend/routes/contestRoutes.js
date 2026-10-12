@@ -8,7 +8,8 @@ import {
     endContest,
     getLeaderboard,
     registerForContest,
-    submitToContest
+    submitToContest,
+    calculateContestRatingsForContest
 } from "../controllers/contestController.js";
 import { requireAdmin, requireStudent } from "../middleware/auth.js";
 
@@ -19,11 +20,12 @@ router.get("/", getAllContests);
 router.get("/:id", getContestById);
 router.get("/:id/leaderboard", getLeaderboard);
 
-// Admin-only routes
+// Admin / Rating Calculation routes
 router.post("/", requireAdmin, createContest);
 router.put("/:id", requireAdmin, updateContest);
 router.delete("/:id", requireAdmin, deleteContest);
 router.put("/:id/end", requireAdmin, endContest);
+router.post("/:id/calculate-ratings", calculateContestRatingsForContest);
 
 // Student-only routes
 router.post("/:id/register", requireStudent, registerForContest);

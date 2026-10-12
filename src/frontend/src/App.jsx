@@ -19,6 +19,8 @@ import Navbar from "./components/Navbar";
 import Inbox from "./pages/Inbox";
 import Leaderboard from "./pages/Leaderboard";
 import CampusLeaderboard from "./pages/CampusLeaderboard";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 
 // Admin components
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -108,6 +110,30 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Growth />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile/:userId" 
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } 
           />

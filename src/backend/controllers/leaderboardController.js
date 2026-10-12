@@ -21,7 +21,7 @@ export const getGlobalUniversities = async (req, res) => {
                 as: "stats"
             }},
             { $unwind: { path: "$stats", preserveNullAndEmptyArrays: true } },
-            { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1000] } } },
+            { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1200] } } },
             { $sort: { contestRating: -1 } },
             { $group: {
                 _id: "$university",
@@ -96,8 +96,8 @@ export const getCampusLeaderboard = async (req, res) => {
             }},
             { $unwind: { path: "$stats", preserveNullAndEmptyArrays: true } },
             { $addFields: { 
-                contestRating: { $ifNull: ["$stats.contestRating", 1000] },
-                maxRating: { $ifNull: ["$stats.maxRating", 1000] }
+                contestRating: { $ifNull: ["$stats.contestRating", 1200] },
+                maxRating: { $ifNull: ["$stats.maxRating", 1200] }
             }},
             { $sort: { contestRating: -1 } },
             { $project: { name: 1, contestRating: 1, maxRating: 1, createdAt: 1 } }
@@ -155,7 +155,7 @@ export const getMyLeaderboardStats = async (req, res) => {
                 as: "stats"
             }},
             { $unwind: { path: "$stats", preserveNullAndEmptyArrays: true } },
-            { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1000] } } },
+            { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1200] } } },
             { $sort: { contestRating: -1 } },
             { $group: {
                 _id: "$university",
@@ -172,8 +172,8 @@ export const getMyLeaderboardStats = async (req, res) => {
         // Fetch user's real stats to find their contestRating
         const mongoose = (await import("mongoose")).default;
         const studentStats = await mongoose.model('StudentStats').findOne({ userId: user._id.toString() });
-        const dynamicContestRating = studentStats ? studentStats.contestRating : 1000;
-        const maxRating = studentStats ? studentStats.maxRating : 1000;
+        const dynamicContestRating = studentStats ? studentStats.contestRating : 1200;
+        const maxRating = studentStats ? studentStats.maxRating : 1200;
 
         // Calculate personal campus rank by aggregating users in the same university
         // and counting how many have a higher contestRating
@@ -187,7 +187,7 @@ export const getMyLeaderboardStats = async (req, res) => {
                 as: "stats"
             }},
             { $unwind: { path: "$stats", preserveNullAndEmptyArrays: true } },
-            { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1000] } } },
+            { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1200] } } },
             { $match: { contestRating: { $gt: dynamicContestRating } } },
             { $count: "higherRanked" }
         ]);

@@ -52,14 +52,33 @@ const ContestDetail = () => {
   const [timeRemaining, setTimeRemaining] = useState("");
   const [registering, setRegistering] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  // Track solved problems in this contest for the current user
-  const [solvedProblemIds, setSolvedProblemIds] = useState(new Set());
+  const [calculatingRatings, setCalculatingRatings] = useState(false);
 
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleRecalculateRatings = async () => {
+    try {
+      setCalculatingRatings(true);
+      const res = await fetch(`${getBackendURL()}/api/contests/${id}/calculate-ratings`, {
+        method: "POST",
+        credentials: "include"
+      });
+      if (res.ok) {
+        showToast("⚡ ELO Ratings updated and synced!");
+        fetchContestDetails();
+        fetchLeaderboard();
+      } else {
+        showToast("Failed to calculate ELO ratings.");
+      }
+    } catch (err) {
+      console.error("Error rating calculation:", err);
+      showToast("Error calculating ELO ratings.");
+    } finally {
+      setCalculatingRatings(false);
+    }
   };
 
   // ─── Data Fetching ──────────────────────────────────────────────────────────
@@ -388,9 +407,21 @@ const ContestDetail = () => {
         {/* ─── Right: Leaderboard (40%) ──────────────────────────────── */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white border-4 border-black neo-brutal overflow-hidden">
-            <div className="bg-slate-900 p-4 border-b-4 border-black flex items-center gap-2">
-              <Trophy size={20} className="text-amber-400" />
-              <h2 className="text-xl lg:text-2xl font-black uppercase font-spartan text-white">Leaderboard</h2>
+            <div className="bg-slate-900 p-4 border-b-4 border-black flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Trophy size={20} className="text-amber-400" />
+                <h2 className="text-xl lg:text-2xl font-black uppercase font-spartan text-white">Leaderboard</h2>
+              </div>
+
+              {isEnded && (session?.user?.role === 'admin' || session?.user?.role === 'problem_setter') && (
+                <button
+                  onClick={handleRecalculateRatings}
+                  disabled={calculatingRatings}
+                  className="px-2.5 py-1 bg-amber-400 text-black border-2 border-black font-black uppercase text-[10px] hover:bg-amber-300 transition-all shadow-[2px_2px_0px_0px_white] active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  {calculatingRatings ? "Syncing..." : "⚡ Sync ELO"}
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="table table-compact w-full text-black">
@@ -400,13 +431,14 @@ const ContestDetail = () => {
                     <th className="font-black uppercase text-xs text-black">User</th>
                     <th className="font-black uppercase text-xs text-black text-center">Score</th>
                     <th className="font-black uppercase text-xs text-black text-center">Solved</th>
+                    <th className="font-black uppercase text-xs text-black text-center">Rating Δ</th>
                     <th className="font-black uppercase text-xs text-black text-right">Penalty</th>
                   </tr>
                 </thead>
                 <tbody>
                   {leaderboard.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 font-bold uppercase text-xs text-slate-500">
+                      <td colSpan={6} className="text-center py-8 font-bold uppercase text-xs text-slate-500">
                         No submissions yet
                       </td>
                     </tr>
@@ -416,6 +448,7 @@ const ContestDetail = () => {
                         participant.userId?._id === session.user.id ||
                         participant.userId === session.user.id
                       );
+                      const ratingChange = participant.ratingChange;
                       return (
                         <tr key={participant._id || index} className={`border-b border-slate-200 ${isMe ? "bg-emerald-50 font-black" : "hover:bg-slate-50"}`}>
                           <td className="font-black text-sm">
@@ -427,6 +460,21 @@ const ContestDetail = () => {
                           </td>
                           <td className="font-black text-sm text-center text-black">{participant.score || 0}</td>
                           <td className="font-black text-sm text-center text-emerald-600">{participant.solved?.length || 0}</td>
+                          <td className="font-black text-xs text-center">
+                            {ratingChange ? (
+                              <span className={`px-2 py-0.5 border border-black font-black text-[11px] rounded ${
+                                ratingChange.startsWith('+')
+                                  ? "bg-emerald-300 text-black shadow-[1px_1px_0px_0px_black]"
+                                  : ratingChange.startsWith('-')
+                                  ? "bg-rose-300 text-black shadow-[1px_1px_0px_0px_black]"
+                                  : "bg-slate-200 text-black"
+                              }`}>
+                                {ratingChange}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-bold text-[10px]">—</span>
+                            )}
+                          </td>
                           <td className="font-black text-xs text-right text-red-500">{participant.penalty || 0}m</td>
                         </tr>
                       );

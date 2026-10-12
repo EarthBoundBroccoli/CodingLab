@@ -23,6 +23,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import submissionRoutes from "./routes/submissionRoutes.js";
 import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import contestRoutes from "./routes/contestRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -69,6 +70,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/contests", contestRoutes);
+app.use("/api/users", userRoutes);
 
 
 

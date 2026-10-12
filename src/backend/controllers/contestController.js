@@ -5,11 +5,128 @@ import { User } from "../models/User.js";
 import { Submission } from "../models/Submission.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
+import { calculateContestRatings } from "../utils/eloCalculator.js";
+
+// Helper function to calculate and persist ELO rating changes for a contest
+const processRatingsForContest = async (contest) => {
+    if (!contest || contest.ratingsCalculated || !Array.isArray(contest.participants) || contest.participants.length === 0) {
+        return contest;
+    }
+
+    try {
+        const sortedParticipants = [...contest.participants].sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.penalty - b.penalty;
+        });
+
+        let currentRank = 1;
+        const rankedList = sortedParticipants.map((p, idx) => {
+            if (idx > 0) {
+                const prev = sortedParticipants[idx - 1];
+                if (p.score !== prev.score || p.penalty !== prev.penalty) {
+                    currentRank = idx + 1;
+                }
+            }
+            return {
+                userId: p.userId.toString(),
+                rank: currentRank,
+                score: p.score,
+                penalty: p.penalty
+            };
+        });
+
+        const userIds = rankedList.map(r => r.userId);
+        const statsList = await StudentStats.find({ userId: { $in: userIds } });
+        const statsMap = {};
+        statsList.forEach(s => { statsMap[s.userId.toString()] = s; });
+
+        const usersList = await User.find({ $or: [{ _id: { $in: userIds } }, { id: { $in: userIds } }] });
+        const userMap = {};
+        usersList.forEach(u => {
+            userMap[u._id.toString()] = u;
+            if (u.id) userMap[u.id.toString()] = u;
+        });
+
+        const eloInput = rankedList.map(r => {
+            const s = statsMap[r.userId];
+            const u = userMap[r.userId];
+            const oldRating = s?.contestRating || u?.rating || 1200;
+            return {
+                userId: r.userId,
+                name: u?.name || "Participant",
+                email: u?.email || "",
+                rank: r.rank,
+                score: r.score,
+                penalty: r.penalty,
+                oldRating
+            };
+        });
+
+        const calculatedResults = calculateContestRatings(eloInput);
+
+        for (const resItem of calculatedResults) {
+            const { userId, newRating, ratingChange, ratingTier } = resItem;
+
+            let statsDoc = await StudentStats.findOne({ userId });
+            if (!statsDoc) statsDoc = new StudentStats({ userId });
+
+            statsDoc.contestRating = newRating;
+            statsDoc.ratingTier = ratingTier;
+            statsDoc.maxRating = Math.max(statsDoc.maxRating || 1000, newRating);
+
+            const existingIdx = (statsDoc.ratingHistory || []).findIndex(
+                h => h.contestId?.toString() === contest._id.toString() || h.contestName === contest.name
+            );
+
+            const historyEntry = {
+                contestId: contest._id,
+                contestName: contest.name,
+                ratingChange,
+                newRating,
+                rank: resItem.rank,
+                date: new Date()
+            };
+
+            if (existingIdx >= 0) {
+                statsDoc.ratingHistory[existingIdx] = historyEntry;
+            } else {
+                if (!Array.isArray(statsDoc.ratingHistory)) statsDoc.ratingHistory = [];
+                statsDoc.ratingHistory.push(historyEntry);
+            }
+
+            await statsDoc.save();
+
+            const uDoc = await User.findOne({ $or: [{ _id: userId }, { id: userId }] });
+            if (uDoc) {
+                uDoc.rating = newRating;
+                await uDoc.save();
+            }
+
+            const pInContest = contest.participants.find(p => p.userId.toString() === userId.toString());
+            if (pInContest) {
+                pInContest.ratingChange = ratingChange;
+                pInContest.newRating = newRating;
+            }
+        }
+
+        contest.ratingsCalculated = true;
+        await contest.save();
+    } catch (err) {
+        console.error("Auto rating calculation error:", err);
+    }
+    return contest;
+};
 
 // Helper to auto-update contest status in DB if it changes
 const autoUpdateContestStatus = async (contest) => {
     const now = new Date();
-    if (contest.status === 'Ended') return contest;
+    
+    if (contest.status === 'Ended') {
+        if (!contest.ratingsCalculated) {
+            await processRatingsForContest(contest);
+        }
+        return contest;
+    }
 
     let newStatus = contest.status;
     if (now < contest.startTime) {
@@ -23,6 +140,9 @@ const autoUpdateContestStatus = async (contest) => {
     if (contest.status !== newStatus) {
         contest.status = newStatus;
         await contest.save();
+        if (newStatus === 'Ended') {
+            await processRatingsForContest(contest);
+        }
     }
     return contest;
 };
@@ -671,3 +791,37 @@ export const submitToContest = async (req, res) => {
 
 // Alias for route file compatibility
 export const submitContestSolution = submitToContest;
+
+// @desc    Calculate and update ELO ratings for all participants after contest ends
+// @route   POST /api/contests/:id/calculate-ratings
+// @access  Protected (Admin / Setter or trigger)
+export const calculateContestRatingsForContest = async (req, res) => {
+    try {
+        const contestId = req.params.id;
+        let contest = await Contest.findById(contestId);
+
+        if (!contest) {
+            return res.status(404).json({ message: "Contest not found." });
+        }
+
+        contest = await autoUpdateContestStatus(contest);
+
+        if (!contest.participants || contest.participants.length === 0) {
+            return res.status(400).json({ message: "No participants registered in this contest." });
+        }
+
+        // Force rating recalculation
+        contest.ratingsCalculated = false;
+        await processRatingsForContest(contest);
+
+        return res.status(200).json({
+            message: `Successfully calculated and updated ELO ratings for ${contest.participants.length} participants!`,
+            contestId: contest._id,
+            contestName: contest.name,
+            participants: contest.participants
+        });
+    } catch (error) {
+        console.error("Error calculating contest ratings:", error);
+        return res.status(500).json({ message: "Failed to calculate contest ratings.", error: error.message });
+    }
+};

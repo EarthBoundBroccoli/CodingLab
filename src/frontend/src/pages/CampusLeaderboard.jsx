@@ -87,24 +87,26 @@ const CampusLeaderboard = () => {
                             
                             {students.map((student, index) => {
                                 const campusRank = (page - 1) * 20 + index + 1;
-                                const isMe = session?.user?.name === student.name; // In production, match by ID or Email
+                                const isMe = session?.user?.name === student.name || session?.user?.id === student._id?.toString();
                                 const rating = student.contestRating || 1200;
                                 
                                 const getRatingBadge = (r) => {
-                                    if (r < 1200) return { title: "Newbie", color: "bg-slate-200 text-slate-700" };
-                                    if (r < 1400) return { title: "Pupil", color: "bg-green-400 text-black" };
+                                    if (r < 1200) return { title: "Novice", color: "bg-slate-200 text-black" };
+                                    if (r < 1400) return { title: "Apprentice", color: "bg-emerald-400 text-black" };
                                     if (r < 1600) return { title: "Specialist", color: "bg-cyan-400 text-black" };
-                                    if (r < 1900) return { title: "Expert", color: "bg-blue-500 text-white" };
-                                    if (r < 2100) return { title: "Candidate Master", color: "bg-purple-500 text-white" };
+                                    if (r < 1900) return { title: "Expert", color: "bg-blue-600 text-white" };
+                                    if (r < 2100) return { title: "Candidate Master", color: "bg-purple-600 text-white" };
+                                    if (r < 2400) return { title: "Master", color: "bg-amber-500 text-black" };
                                     return { title: "Grandmaster", color: "bg-red-500 text-white" };
                                 };
                                 const badge = getRatingBadge(rating);
 
                                 return (
-                                    <div 
+                                    <Link 
+                                        to={`/profile/${student._id}`}
                                         key={student._id}
-                                        className={`grid grid-cols-12 gap-4 p-4 border-b-2 border-black last:border-b-0 items-center transition-colors ${
-                                            isMe ? "bg-emerald-200 hover:bg-emerald-300" : "hover:bg-slate-50"
+                                        className={`grid grid-cols-12 gap-4 p-4 border-b-2 border-black last:border-b-0 items-center transition-all hover:translate-x-1 cursor-pointer ${
+                                            isMe ? "bg-emerald-100 hover:bg-emerald-200" : "hover:bg-slate-50"
                                         }`}
                                     >
                                         <div className="col-span-2 md:col-span-1 text-center font-black text-xl md:text-2xl font-spartan">
@@ -112,7 +114,7 @@ const CampusLeaderboard = () => {
                                         </div>
                                         <div className="col-span-7 md:col-span-8 flex items-center gap-3 md:gap-4">
                                             <div className="w-10 h-10 md:w-12 md:h-12 bg-black text-white flex items-center justify-center font-black rounded-full shrink-0 border-2 border-black">
-                                                {isMe ? <User size={24} /> : student.name.charAt(0).toUpperCase()}
+                                                {student.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <div className="font-black text-lg md:text-xl uppercase truncate flex items-center gap-2">
@@ -131,7 +133,7 @@ const CampusLeaderboard = () => {
                                         <div className="col-span-3 text-right pr-2 md:pr-4 font-black text-xl md:text-3xl font-spartan">
                                             {rating.toLocaleString()}
                                         </div>
-                                    </div>
+                                    </Link>
                                 );
                             })}
                         </div>
