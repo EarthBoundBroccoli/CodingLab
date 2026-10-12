@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { auth } from "../lib/auth.js";
 import { User } from "../models/User.js";
+import { accountBlocked } from "../utils/accountAccess.js";
 
 // Ensure user is authenticated
 export const requireAuth = async (req, res, next) => {
@@ -21,46 +23,42 @@ export const requireAuth = async (req, res, next) => {
     }
 };
 
-// Ensure user is admin (with header bypass support)
-export const requireAdmin = async (req, res, next) => {
-    try {
-        const adminToken = req.headers['x-admin-token'];
-        const isBypass = adminToken === 'admin123';
-
-        if (isBypass) {
-            req.user = {
-                id: "admin-bypass-id",
-                role: "admin",
-                email: "admin@example.com",
-                name: "Bypass Admin"
-            };
-            return next();
+// Require a real authenticated admin or problem setter session.
+export const requireAdminOrSetter = async (req, res, next) => {
+    return requireAuth(req, res, () => {
+        if (!['admin', 'problem_setter'].includes(req.user.role)) {
+            return res.status(403).json({ message: "Forbidden: Admin or problem setter access only" });
         }
 
-        const session = await auth.api.getSession({
-            headers: req.headers
-        });
+        return next();
+    });
+};
 
-        if (!session) {
+// Verify a real session and the current database role on every admin request.
+export const requireAdmin = async (req, res, next) => {
+    try {
+        const session = await auth.api.getSession({ headers: req.headers });
+        const id = session?.user?.id;
+        if (typeof id !== "string" || !id) {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Auto-upgrade admin@example.com to role 'admin' in database if not already done
-        if (session.user.email === 'admin@example.com' && session.user.role !== 'admin') {
-            await User.updateOne({ email: 'admin@example.com' }, { $set: { role: 'admin' } });
-            session.user.role = 'admin';
+        const identities = [{ id }];
+        if (mongoose.isObjectIdOrHexString(id)) identities.push({ _id: id });
+        const user = await User.findOne({ $or: identities });
+        if (!user || accountBlocked(user)) {
+            return res.status(401).json({ message: "Unauthorized" });
         }
-
-        if (session.user.role !== 'admin') {
+        if (user.role !== "admin") {
             return res.status(403).json({ message: "Forbidden: Admin access only" });
         }
 
-        req.session = session;
-        req.user = session.user;
-        next();
+        req.user = { ...session.user, role: user.role };
+        req.session = { ...session, user: req.user };
+        return next();
     } catch (error) {
         console.error("Admin auth middleware error:", error);
-        res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Internal server error" });
     }
 };
 

@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { beforeSessionCreate } from "../utils/accountAccess.js";
 
 const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/codinglab";
 const client = new MongoClient(mongoUri);
@@ -8,6 +9,7 @@ const db = client.db();
 
 export const auth = betterAuth({
     database: mongodbAdapter(db, {client}),
+    databaseHooks: { session: { create: { before: beforeSessionCreate } } },
     emailAndPassword: {
         enabled: true
     },
@@ -40,22 +42,8 @@ export const auth = betterAuth({
     trustedOrigins: [
         process.env.FRONTEND_URL || "http://localhost:5173",
         "http://localhost:5173",
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174"
     ].filter(Boolean),
 });
-
-// Global middleware: pre-set req.user from x-admin-token header if present.
-// This runs early in the pipeline so ALL downstream routes have req.user available.
-// If no token is sent, this passes through silently (no blocking).
-export const adminBypass = (req, res, next) => {
-    const adminToken = req.headers['x-admin-token'];
-    if (adminToken === 'admin123') {
-        req.user = {
-            id: "admin-bypass-id",
-            role: "admin",
-            email: "admin@example.com",
-            name: "Bypass Admin"
-        };
-    }
-    next();
-};

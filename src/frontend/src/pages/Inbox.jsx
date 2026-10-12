@@ -1,51 +1,70 @@
-import { useState, useEffect } from "react";
-import { getBackendURL } from "../lib/auth-client";
+import { useState, useEffect, useRef } from "react";
+import { getBackendURL, useSession } from "../lib/auth-client";
+import { loadNotificationInbox, markNotificationsRead, NOTIFICATIONS_CHANGED } from "../lib/notifications";
 import { Bell, Inbox as InboxIcon, AlertCircle, Check, Loader2 } from "lucide-react";
 
 const Inbox = () => {
+  const { data: session, isPending } = useSession();
+  const userId = session?.user?.id;
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [readError, setReadError] = useState("");
+  const [markingRead, setMarkingRead] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const activeRequest = useRef(null);
 
-  const fetchNotifications = async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/notifications`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data);
-      } else {
-        setError("Failed to load notifications.");
-      }
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-      setError("Failed to connect to backend server.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const notifyBadge = () => window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED));
 
   const markAllAsRead = async () => {
+    const controller = activeRequest.current;
+    if (!controller || controller.signal.aborted || markingRead) return;
+    setMarkingRead(true);
+    setReadError("");
     try {
-      const response = await fetch(`${getBackendURL()}/api/notifications/read-all`, {
-        method: "PATCH",
-        credentials: "include"
-      });
-      if (response.ok) {
-        // Update local state to mark all as read
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      const data = await markNotificationsRead(getBackendURL(), notifications, controller.signal);
+      if (!controller.signal.aborted) {
+        setNotifications(data);
+        notifyBadge();
       }
     } catch (err) {
-      console.error("Error marking all as read:", err);
+      if (!controller.signal.aborted) setReadError(err.message);
+    } finally {
+      if (!controller.signal.aborted) setMarkingRead(false);
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
-    // Mark as read automatically when visiting the page
-    markAllAsRead();
-  }, []);
+    if (isPending || !userId) return;
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    loadNotificationInbox(getBackendURL(), {
+      signal: controller.signal,
+      onLoaded: data => {
+        setNotifications(data);
+        setLoading(false);
+        setMarkingRead(data.some(item => !item.isRead));
+      },
+    }).then(result => {
+      if (!result || controller.signal.aborted) return;
+      setNotifications(result.notifications);
+      setReadError(result.readError);
+      setMarkingRead(false);
+      if (!result.readError) notifyBadge();
+    }).catch(() => {
+      if (controller.signal.aborted) return;
+      setError("Could not load notifications. Please try again.");
+      setLoading(false);
+    });
+    return () => controller.abort();
+  }, [userId, isPending, attempt]);
+
+  const retryLoad = () => {
+    setError("");
+    setReadError("");
+    setLoading(true);
+    setAttempt(value => value + 1);
+  };
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr);
@@ -79,23 +98,31 @@ const Inbox = () => {
           {notifications.some(n => !n.isRead) && (
             <button
               onClick={markAllAsRead}
+              disabled={markingRead}
               className="btn btn-sm bg-emerald-400 text-black border-2 border-black rounded-none font-black uppercase text-xs hover:bg-white cursor-pointer"
             >
-              <Check size={14} strokeWidth={3} className="mr-1 inline-block" /> Mark all read
+              <Check size={14} strokeWidth={3} className="mr-1 inline-block" /> {markingRead ? "Marking read…" : "Mark all read"}
             </button>
           )}
         </div>
 
         {/* Content Area */}
         <div className="p-6 bg-slate-50 space-y-4 min-h-[400px]">
+          {readError && (
+            <div role="alert" className="p-4 border-2 border-black bg-white text-sm flex items-center justify-between gap-4">
+              <p>{readError}</p>
+              <button onClick={markAllAsRead} disabled={markingRead} className="btn btn-sm rounded-none border-2 border-black bg-white">Retry</button>
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="animate-spin text-black" size={40} />
             </div>
           ) : error ? (
-            <div className="p-8 text-center text-error font-black uppercase flex flex-col items-center justify-center gap-2">
+            <div role="alert" className="p-8 text-center text-error font-black uppercase flex flex-col items-center justify-center gap-2">
               <AlertCircle size={40} />
               {error}
+              <button onClick={retryLoad} className="btn btn-sm rounded-none border-2 border-black bg-white text-black">Retry</button>
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-4">
@@ -110,16 +137,13 @@ const Inbox = () => {
 
                 let cardBgClass = "bg-white";
                 let accentBorderClass = "border-l-8 border-black";
-                let textAccentClass = "text-black";
 
                 if (isApproved) {
                   cardBgClass = "bg-emerald-50/70";
                   accentBorderClass = "border-l-8 border-emerald-400";
-                  textAccentClass = "text-emerald-800";
                 } else if (isRejected) {
                   cardBgClass = "bg-rose-50/70";
                   accentBorderClass = "border-l-8 border-rose-400";
-                  textAccentClass = "text-rose-800";
                 }
 
                 return (

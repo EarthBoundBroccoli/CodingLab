@@ -5,6 +5,7 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import axios from "axios";
 import { getBackendURL } from "../lib/auth-client";
 import { renderMarkdown } from "../lib/markdown";
+import { editorLanguages, readEditorPreferences, registerEditorThemes } from "../lib/editor-preferences";
 import { Loader2, AlertCircle, Play, Send, ChevronLeft } from "lucide-react";
 
 const badgeForDifficulty = (difficulty) => {
@@ -30,9 +31,10 @@ const ProblemWorkspace = () => {
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [language, setLanguage] = useState(prefillLanguage || "cpp");
-  const [codeValue, setCodeValue] = useState(prefillCode || boilerplates[prefillLanguage || "cpp"]);
-  const prevLanguage = useRef(prefillLanguage || "cpp");
+  const [editorPreferences] = useState(() => readEditorPreferences());
+  const [language, setLanguage] = useState(() => editorLanguages.includes(prefillLanguage) ? prefillLanguage : editorPreferences.language);
+  const [codeValue, setCodeValue] = useState(() => prefillCode ?? boilerplates[language]);
+  const prevLanguage = useRef(language);
 
   // Console execution states
   const [activeTab, setActiveTab] = useState("input");
@@ -96,20 +98,6 @@ const ProblemWorkspace = () => {
     };
     fetchProblemDetails();
   }, [id]);
-
-  const handleEditorBeforeMount = (monaco) => {
-    monaco.editor.defineTheme("codinglab-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#020617", // Deep dark-indigo backdrop
-        "editor.lineHighlightBackground": "#0f172a", // Subtle dark row highlight
-        "editorLineNumber.foreground": "#475569", // Muted slate line numbers
-        "editorLineNumber.activeForeground": "#10b981", // Active line emerald highlight
-      },
-    });
-  };
 
   const handleRunCode = async () => {
     setIsRunningSandbox(true);
@@ -382,11 +370,11 @@ const ProblemWorkspace = () => {
                 <div className="w-full h-full border-4 border-black neo-brutal overflow-hidden">
                   <Editor
                     height="100%"
-                    theme="codinglab-dark"
+                    theme={editorPreferences.theme}
                     language={language}
                     value={codeValue}
                     onChange={(value) => setCodeValue(value || "")}
-                    beforeMount={handleEditorBeforeMount}
+                    beforeMount={registerEditorThemes}
                     loading={
                       <div className="flex flex-col items-center justify-center h-full bg-[#020617] text-slate-400 space-y-3 font-mono">
                         <Loader2 className="animate-spin text-emerald-400" size={32} />
@@ -394,6 +382,9 @@ const ProblemWorkspace = () => {
                       </div>
                     }
                     options={{
+                      tabSize: editorPreferences.tabSize,
+                      insertSpaces: true,
+                      detectIndentation: false,
                       minimap: { enabled: false },
                       fontSize: 14,
                       fontFamily: "Fira Code, Courier New, monospace",

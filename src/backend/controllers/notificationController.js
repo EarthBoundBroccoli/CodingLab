@@ -1,5 +1,6 @@
 import { Notification } from "../models/Notification.js";
 import { auth } from "../lib/auth.js";
+import mongoose from "mongoose";
 
 // @desc    Get all notifications for the logged-in user
 // @route   GET /api/notifications
@@ -37,8 +38,13 @@ export const readAllNotifications = async (req, res) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
+        const ids = req.body?.ids;
+        if (ids !== undefined && (!Array.isArray(ids) || ids.some(id => typeof id !== "string" || !mongoose.isObjectIdOrHexString(id)))) {
+            return res.status(400).json({ message: "Notification IDs must be a list of valid IDs." });
+        }
+
         await Notification.updateMany(
-            { userId: session.user.id, isRead: false },
+            { userId: session.user.id, isRead: false, ...(ids !== undefined ? { _id: { $in: ids } } : {}) },
             { $set: { isRead: true } }
         );
 

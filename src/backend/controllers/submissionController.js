@@ -1,9 +1,11 @@
 import axios from "axios";
+import mongoose from "mongoose";
 import { Problem } from "../models/Problem.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { Submission } from "../models/Submission.js";
 import { auth } from "../lib/auth.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
+import { buildSubmissionActivity } from "../utils/submissionActivity.js";
 
 // Helper function to fetch content from Cloudinary URL if needed
 const fetchIfNeeded = async (urlOrContent) => {
@@ -189,8 +191,12 @@ export const submitProblemSolution = async (req, res) => {
       return res.status(400).json({ message: "problemId, code, and language are required fields." });
     }
 
-    // 1. Fetch targeted problem document
-    const problem = await Problem.findById(problemId);
+    if (!mongoose.isObjectIdOrHexString(problemId)) {
+      return res.status(404).json({ message: "Problem not found." });
+    }
+
+    // Keep unavailable problems private, including direct API submissions.
+    const problem = await Problem.findOne({ _id: problemId, status: "approved" });
     if (!problem) {
       return res.status(404).json({ message: "Problem not found." });
     }
@@ -451,7 +457,7 @@ export const getStudentProfileStats = async (req, res) => {
 };
 
 // @desc    Get user overall problem stats
-// @route   GET /api/submissions/stats
+// @route   GET /api/submissions/user-stats
 // @access  Protected
 export const getUserStats = async (req, res) => {
   try {
@@ -538,98 +544,30 @@ export const getUserStats = async (req, res) => {
       .select("problemId createdAt")
       .lean();
 
-    const now = new Date();
-    const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const allTimeSolvedSet = new Set();
-    const lastYearSolvedSet = new Set();
-    const lastMonthSolvedSet = new Set();
-
-    const dateCounts = {};
-
-    // Also populate from StudentStats.activityHistory if present
     const studentStatsDoc = await StudentStats.findOne({ userId: userId });
-    if (studentStatsDoc && Array.isArray(studentStatsDoc.activityHistory)) {
-      studentStatsDoc.activityHistory.forEach(item => {
-        if (item.date && item.count) {
-          dateCounts[item.date] = (dateCounts[item.date] || 0) + item.count;
-        }
-      });
-    }
-
-    acSubmissions.forEach(sub => {
-      if (!sub.problemId) return;
-      const pId = sub.problemId.toString();
-      const subDate = new Date(sub.createdAt);
-      const dateStr = subDate.toISOString().split('T')[0];
-
-      allTimeSolvedSet.add(pId);
-      if (subDate >= oneYearAgo) lastYearSolvedSet.add(pId);
-      if (subDate >= oneMonthAgo) lastMonthSolvedSet.add(pId);
-
-      dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
-    });
-
-    const calcMaxStreakInDates = (dateList) => {
-      if (!dateList || dateList.length === 0) return 0;
-      const sortedDates = Array.from(new Set(dateList)).sort();
-      let maxStreak = 1;
-      let currStreak = 1;
-      for (let i = 1; i < sortedDates.length; i++) {
-        const prev = new Date(sortedDates[i - 1]);
-        const curr = new Date(sortedDates[i]);
-        const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
-        if (diffDays === 1) {
-          currStreak++;
-          if (currStreak > maxStreak) maxStreak = currStreak;
-        } else if (diffDays > 1) {
-          currStreak = 1;
-        }
-      }
-      return maxStreak;
-    };
-
-    const allDates = Object.keys(dateCounts);
-    const lastYearDates = allDates.filter(d => new Date(d) >= oneYearAgo);
-    const lastMonthDates = allDates.filter(d => new Date(d) >= oneMonthAgo);
-
-    const codeforcesStats = {
-      solvedAllTime: Math.max(allTimeSolvedSet.size, studentStatsDoc?.solvedProblems?.length || 0),
-      solvedLastYear: Math.max(lastYearSolvedSet.size, Math.floor((studentStatsDoc?.solvedProblems?.length || 0) * 0.8)),
-      solvedLastMonth: Math.max(lastMonthSolvedSet.size, Math.floor((studentStatsDoc?.solvedProblems?.length || 0) * 0.3)),
-      maxStreakAllTime: Math.max(calcMaxStreakInDates(allDates), studentStatsDoc?.longestStreak || 0),
-      maxStreakLastYear: Math.max(calcMaxStreakInDates(lastYearDates), studentStatsDoc?.longestStreak || 0),
-      maxStreakLastMonth: Math.max(calcMaxStreakInDates(lastMonthDates), studentStatsDoc?.currentStreak || 0),
-    };
-
-    // Build full 365-day activity matrix (52 weeks x 7 days)
-    const heatmap365 = [];
-    for (let i = 364; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = d.toISOString().split('T')[0];
-      const count = dateCounts[dateStr] || 0;
-      let level = 0;
-      if (count === 1) level = 1;
-      else if (count >= 2 && count <= 3) level = 2;
-      else if (count >= 4 && count <= 6) level = 3;
-      else if (count >= 7) level = 4;
-
-      heatmap365.push({ date: dateStr, count, level });
-    }
+    // Submission records are the source of truth; cached activity is not added again.
+    const { currentStreak, codeforcesStats, heatmap365, activityHistory, firstSolveHistory } = buildSubmissionActivity(acSubmissions);
 
     let competitiveStats = {
       contestRating: 1000,
+      maxRating: 1000,
       ratingTier: "NOVICE",
       points: 0,
       ratingHistory: [],
-      currentStreak: codeforcesStats.maxStreakLastMonth,
+      currentStreak,
       longestStreak: codeforcesStats.maxStreakAllTime,
-      activityHistory: []
+      activityHistory
     };
 
     if (studentStatsDoc) {
       const rating = studentStatsDoc.contestRating || 1000;
+      const maxRating = (studentStatsDoc.ratingHistory || []).reduce((maximum, entry) => {
+        return Math.max(
+          maximum,
+          Number.isFinite(entry.oldRating) ? entry.oldRating : rating,
+          Number.isFinite(entry.newRating) ? entry.newRating : rating
+        );
+      }, Math.max(rating, studentStatsDoc.maxRating ?? rating));
       let tier = "NOVICE";
       if (rating >= 2400) tier = "GRANDMASTER";
       else if (rating >= 2100) tier = "MASTER";
@@ -640,12 +578,13 @@ export const getUserStats = async (req, res) => {
 
       competitiveStats = {
         contestRating: rating,
+        maxRating,
         ratingTier: tier,
         points: studentStatsDoc.points || 0,
         ratingHistory: studentStatsDoc.ratingHistory || [],
-        currentStreak: codeforcesStats.maxStreakLastMonth,
+        currentStreak,
         longestStreak: codeforcesStats.maxStreakAllTime,
-        activityHistory: studentStatsDoc.activityHistory || []
+        activityHistory
       };
     }
 
@@ -656,6 +595,7 @@ export const getUserStats = async (req, res) => {
       difficultyStats,
       codeforcesStats,
       heatmap365,
+      firstSolveHistory,
       ...competitiveStats
     });
   } catch (error) {
@@ -675,7 +615,7 @@ export const getRecentSubmissions = async (req, res) => {
     const submissions = await Submission.find({ userId: userId })
       .sort({ createdAt: -1 })
       .limit(50)
-      .populate('problemId', 'title difficulty'); // Populate to get problem names
+      .populate('problemId', 'title difficulty status'); // Include availability for retry links.
       
     return res.status(200).json(submissions);
   } catch (error) {

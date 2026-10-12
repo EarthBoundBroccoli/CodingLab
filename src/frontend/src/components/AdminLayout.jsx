@@ -14,6 +14,7 @@ import { logoutAdmin } from "../lib/admin-auth";
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard", icon: Home },
   { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/support", label: "Support", icon: Inbox },
   { to: "/admin/setter-approvals", label: "Setter Approvals", icon: UserCheck },
   { to: "/admin/problem-requests", label: "Problem Requests", icon: Inbox },
   { to: "/admin/contests", label: "Contests", icon: Trophy },
@@ -22,10 +23,21 @@ const navItems = [
 const AdminLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
 
-  const handleLogout = () => {
-    logoutAdmin();
-    navigate("/admin/login", { replace: true });
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      await logoutAdmin();
+      navigate("/admin/login", { replace: true });
+    } catch (error) {
+      setLogoutError(error.message || "Unable to sign out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   const closeSidebar = () => setSidebarOpen(false);
@@ -54,12 +66,14 @@ const AdminLayout = () => {
       </nav>
 
       <div className="p-3 border-t-4 border-black">
+        {logoutError && <p role="alert" className="mb-2 text-sm">{logoutError}</p>}
         <button
           type="button"
           onClick={handleLogout}
+          disabled={loggingOut}
           className="w-full py-3 bg-slate-900 text-white font-black uppercase text-sm border-4 border-black shadow-[3px_3px_0px_0px_black] hover:bg-error hover:text-black transition-colors"
         >
-          Logout
+          {loggingOut ? "Signing out..." : "Logout"}
         </button>
       </div>
     </>

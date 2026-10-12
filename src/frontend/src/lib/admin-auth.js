@@ -1,22 +1,24 @@
-const ADMIN_AUTH_KEY = "codinglab-admin-auth";
+import { authClient, getBackendURL } from "./auth-client";
 
-export const ADMIN_EMAIL = "admin@example.com";
-export const ADMIN_PASSWORD = "admin123";
-
-export const loginAdmin = (email, password) => {
-  const isValid = email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
-
-  if (isValid) {
-    localStorage.setItem(ADMIN_AUTH_KEY, "true");
-  }
-
-  return isValid;
+export const getAdminSession = async () => {
+  const response = await fetch(`${getBackendURL()}/api/admin/session`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) throw new Error("Unable to verify admin access. Please try again.");
+  return response.json();
 };
 
-export const isAdminAuthenticated = () => {
-  return localStorage.getItem(ADMIN_AUTH_KEY) === "true";
+export const loginAdmin = async (email, password) => {
+  const { error } = await authClient.signIn.email({ email, password });
+  if (error) throw new Error(error.message || "Invalid email or password.");
+  const session = await getAdminSession();
+  if (!session) throw new Error("This account does not have admin access.");
+  return session;
 };
 
-export const logoutAdmin = () => {
-  localStorage.removeItem(ADMIN_AUTH_KEY);
+export const logoutAdmin = async () => {
+  const { error } = await authClient.signOut();
+  if (error) throw new Error(error.message || "Unable to sign out. Please try again.");
 };

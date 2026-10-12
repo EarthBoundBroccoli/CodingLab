@@ -11,9 +11,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import { toNodeHandler } from "better-auth/node";
-import { auth, adminBypass } from "./lib/auth.js";
-
-import { User } from "./models/User.js";
+import { auth } from "./lib/auth.js";
+import { enforceAccountAccess } from "./middleware/accountAccess.js";
 
 // Routes Imports
 import setterRoutes from "./routes/setterRoutes.js";
@@ -24,6 +23,7 @@ import submissionRoutes from "./routes/submissionRoutes.js";
 import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import contestRoutes from "./routes/contestRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import supportRoutes from "./routes/supportRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -55,11 +55,9 @@ app.use(cors({
 
 app.use(express.json());
 
-// Global admin bypass middleware — pre-sets req.user from x-admin-token header
-app.use(adminBypass);
-
 // Better Auth handler
 app.all("/api/auth/*splat", toNodeHandler(auth));
+app.use("/api", enforceAccountAccess);
 
 // Mount routes
 app.use("/api/setter", setterRoutes);
@@ -71,6 +69,7 @@ app.use("/api/submissions", submissionRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/support", supportRoutes);
 
 
 
@@ -99,31 +98,8 @@ const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/codinglab
 
 console.log('Connecting to MongoDB...');
 mongoose.connect(mongoUri)
-  .then(async () => {
+  .then(() => {
     console.log('Successfully connected to MongoDB via Mongoose');
-    try {
-      const adminExists = await User.findOne({ email: "admin@example.com" });
-      console.log(`[Admin Seed] Admin user check completed. Exists: ${!!adminExists}, Role: ${adminExists?.role}`);
-      if (!adminExists) {
-        console.log("Admin user not found. Seeding admin user...");
-        await auth.api.signUpEmail({
-          body: {
-            email: "admin@example.com",
-            password: "admin123",
-            name: "Platform Admin",
-          }
-        });
-        await User.updateOne({ email: "admin@example.com" }, { $set: { role: "admin" } });
-        console.log("Admin user seeded successfully.");
-      } else {
-        if (adminExists.role !== "admin") {
-          await User.updateOne({ email: "admin@example.com" }, { $set: { role: "admin" } });
-          console.log("Admin role verified and updated.");
-        }
-      }
-    } catch (err) {
-      console.error("Error seeding admin user:", err);
-    }
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error.message);

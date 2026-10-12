@@ -1,65 +1,70 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, ChevronLeft, ChevronRight, ArrowLeft, Users, Filter, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ArrowLeft, Users, Filter, X, Loader2, AlertCircle } from "lucide-react";
+
+import { getBackendURL } from "../lib/auth-client";
+import { buildContestArchive, filterContestArchive, formatArchiveDate } from "../lib/contest-archive";
 
 const PreviousContests = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     
     // Filter States
-    const [activeDivision, setActiveDivision] = useState(null);
+    const [dateSort, setDateSort] = useState("newest");
     const [popularitySort, setPopularitySort] = useState(null); // 'most', 'least'
-    const [alphaSort, setAlphaSort] = useState("asc"); // 'asc', 'desc'
+    const [alphaSort, setAlphaSort] = useState(null); // 'asc', 'desc'
     
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
 
-    // Placeholder data for 35+ previous contests
-    const allPrevious = useMemo(() => Array.from({ length: 35 }, (_, i) => ({
-        id: 200 + i,
-        title: `Contest Archive #${35 - i} - ${i % 2 === 0 ? 'Spring' : 'Winter'} Edition`,
-        host: i % 3 === 0 ? "Admin" : i % 3 === 1 ? "ProblemSetter_X" : "CodingClub",
-        participants: Math.floor(Math.random() * 5000) + 500,
-        division: i % 3 === 0 ? "Div. 1" : i % 3 === 1 ? "Div. 2" : "Div. 3",
-    })), []);
+    const [allPrevious, setAllPrevious] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [attempt, setAttempt] = useState(0);
 
-    // Filtered and Sorted Logic
-    const filteredContests = useMemo(() => {
-        let result = allPrevious.filter((c) => {
-            const matchesSearch = c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 c.host.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesDiv = !activeDivision || c.division === activeDivision;
-            return matchesSearch && matchesDiv;
-        });
+    useEffect(() => {
+        const controller = new AbortController();
+        const fetchArchive = async () => {
+            try {
+                const response = await fetch(`${getBackendURL()}/api/contests`, {
+                    credentials: "include", signal: controller.signal
+                });
+                if (!response.ok) throw new Error("Unable to load the contest archive.");
+                const data = await response.json();
+                if (!Array.isArray(data)) throw new Error("Unable to load the contest archive.");
+                if (!controller.signal.aborted) setAllPrevious(buildContestArchive(data));
+            } catch (error) {
+                if (!controller.signal.aborted) setError(error.message || "Unable to connect to the server.");
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
+            }
+        };
+        fetchArchive();
+        return () => controller.abort();
+    }, [attempt]);
 
-        // Alphabetical Sort
-        if (alphaSort === "asc") {
-            result.sort((a, b) => a.title.localeCompare(b.title));
-        } else if (alphaSort === "desc") {
-            result.sort((a, b) => b.title.localeCompare(a.title));
-        }
+    const retry = () => {
+        setLoading(true);
+        setError("");
+        setAttempt(value => value + 1);
+    };
 
-        // Popularity Override
-        if (popularitySort === "most") {
-            result.sort((a, b) => b.participants - a.participants);
-        } else if (popularitySort === "least") {
-            result.sort((a, b) => a.participants - b.participants);
-        }
-
-        return result;
-    }, [searchTerm, alphaSort, popularitySort, activeDivision, allPrevious]);
+    const filteredContests = useMemo(() => filterContestArchive(allPrevious, {
+        searchTerm, popularitySort, alphaSort, dateSort
+    }), [allPrevious, searchTerm, popularitySort, alphaSort, dateSort]);
 
     // Pagination
-    const totalPages = Math.ceil(filteredContests.length / itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredContests.length / itemsPerPage));
+    const page = Math.min(currentPage, totalPages);
     const paginatedContests = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
+        const start = (page - 1) * itemsPerPage;
         return filteredContests.slice(start, start + itemsPerPage);
-    }, [filteredContests, currentPage]);
+    }, [filteredContests, page]);
 
     const resetFilters = () => {
-        setActiveDivision(null);
+        setDateSort("newest");
         setPopularitySort(null);
-        setAlphaSort("asc");
+        setAlphaSort(null);
         setCurrentPage(1);
     };
 
@@ -97,17 +102,13 @@ const PreviousContests = () => {
                 {showFilters && (
                     <div className="absolute top-full mt-4 right-0 w-full md:w-[850px] bg-white neo-brutal p-10 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                            {/* Divisions Column */}
                             <div className="space-y-6">
-                                <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-2 text-lg">Divisions</h4>
+                                <h4 className="font-black uppercase tracking-tighter border-b-4 border-black pb-2 text-lg">Date</h4>
                                 <div className="flex flex-col gap-3">
-                                    {["Div. 1", "Div. 2", "Div. 3"].map(div => (
-                                        <button 
-                                            key={div}
-                                            onClick={() => { setActiveDivision(activeDivision === div ? null : div); setCurrentPage(1); }}
-                                            className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors ${activeDivision === div ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}
-                                        >
-                                            {div}
+                                    {[['newest', 'Newest first'], ['oldest', 'Oldest first']].map(([value, label]) => (
+                                        <button key={value} onClick={() => { setDateSort(value); setAlphaSort(null); setPopularitySort(null); setCurrentPage(1); }}
+                                            className={`text-left font-bold uppercase text-sm p-3 border-2 border-black transition-colors ${dateSort === value && !alphaSort && !popularitySort ? 'bg-emerald-400' : 'hover:bg-slate-100'}`}>
+                                            {label}
                                         </button>
                                     ))}
                                 </div>
@@ -162,17 +163,22 @@ const PreviousContests = () => {
 
             {/* Contests List */}
             <div className="bg-white border-4 border-slate-900 rounded-none overflow-hidden neo-brutal">
-                {paginatedContests.length > 0 ? (
+                {loading ? (
+                    <div role="status" className="flex justify-center items-center gap-3 p-12"><Loader2 className="animate-spin" size={28} /><span className="font-bold">Loading completed contests...</span></div>
+                ) : error ? (
+                    <div role="alert" className="p-8 space-y-4"><p className="flex items-center gap-2"><AlertCircle size={20} />{error}</p><button type="button" onClick={retry} className="btn rounded-none bg-white border-2 border-black">Try again</button></div>
+                ) : paginatedContests.length > 0 ? (
                     <div className="divide-y-4 divide-black">
                         {paginatedContests.map((contest) => (
-                            <div key={contest.id} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group">
+                            <Link to={`/contests/${contest.id}`} key={contest.id} className="flex flex-col md:flex-row hover:bg-sky-100 transition-colors cursor-pointer group">
                                 <div className="flex-1 p-6 flex gap-6 items-start">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-3">
                                             <h3 className="text-2xl font-black uppercase italic group-hover:text-black transition-colors">{contest.title}</h3>
-                                            <span className="badge border-2 border-black font-black bg-emerald-400 text-xs px-4 h-8 uppercase shadow-[2px_2px_0px_0px_black]">{contest.division}</span>
+
                                         </div>
                                         <p className="font-bold text-slate-500 uppercase text-xs">Organized by: {contest.host}</p>
+                                        <p className="text-xs text-slate-500 pt-2">Started <time dateTime={contest.startTime}>{formatArchiveDate(contest.startTime)}</time></p>
                                     </div>
                                 </div>
                                 <div className="w-full md:w-64 border-t-4 md:border-t-0 md:border-l-4 border-black flex items-center justify-center p-6 bg-slate-50">
@@ -184,32 +190,34 @@ const PreviousContests = () => {
                                         <span className="text-[10px] font-black uppercase opacity-60">Participants</span>
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center p-20 gap-4">
-                        <span className="text-6xl italic grayscale opacity-20 uppercase">No Archive Found</span>
+                        <p className="text-lg font-black uppercase">{allPrevious.length ? 'No matching contests' : 'No completed contests yet'}</p>
+                        <p className="text-sm text-slate-500">{allPrevious.length ? 'Try a different search or clear your filters.' : 'Completed contests will appear here with their results.'}</p>
+                        {allPrevious.length > 0 && <button type="button" onClick={() => { resetFilters(); setSearchTerm(''); }} className="underline font-bold">Clear search and filters</button>}
                     </div>
                 )}
 
                 {/* Pagination */}
-                {filteredContests.length > itemsPerPage && (
+                {!loading && !error && filteredContests.length > itemsPerPage && (
                     <div className="p-8 border-t-4 border-black flex justify-center gap-8 bg-white">
                         <button 
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(prev => prev - 1)}
-                            className={`btn bg-white border-4 border-black rounded-none px-8 font-black uppercase hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2 ${currentPage === 1 ? 'opacity-30 cursor-not-allowed shadow-none' : ''}`}
+                            disabled={page === 1}
+                            onClick={() => setCurrentPage(Math.max(1, page - 1))}
+                            className={`btn bg-white border-4 border-black rounded-none px-8 font-black uppercase hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2 ${page === 1 ? 'opacity-30 cursor-not-allowed shadow-none' : ''}`}
                         >
                             <ChevronLeft size={20} /> Prev
                         </button>
                         <div className="flex items-center font-black uppercase text-xl">
-                            {currentPage} / {totalPages}
+                            {page} / {totalPages}
                         </div>
                         <button 
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage(prev => prev + 1)}
-                            className={`btn bg-white border-4 border-black rounded-none px-8 font-black uppercase hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2 ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed shadow-none' : ''}`}
+                            disabled={page === totalPages}
+                            onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
+                            className={`btn bg-white border-4 border-black rounded-none px-8 font-black uppercase hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none flex gap-2 ${page === totalPages ? 'opacity-30 cursor-not-allowed shadow-none' : ''}`}
                         >
                             Next <ChevronRight size={20} />
                         </button>
@@ -217,11 +225,11 @@ const PreviousContests = () => {
                 )}
             </div>
 
-            <div className="mt-6 text-center">
+            {!loading && !error && <div className="mt-6 text-center">
                 <p className="font-black uppercase italic text-sky-500 text-sm">
                     Showing {paginatedContests.length} of {filteredContests.length} contests
                 </p>
-            </div>
+            </div>}
         </div>
     );
 };

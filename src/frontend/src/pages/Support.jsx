@@ -1,14 +1,34 @@
 import { useState } from "react";
+import { getBackendURL } from "../lib/auth-client";
 
 const Support = () => {
   const [complaint, setComplaint] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    // Logic for sending the complaint would go here
-    console.log("Complaint sent:", complaint);
-    setComplaint("");
-    alert("Thank you for your feedback! We will get back to you soon.");
+    if (sending) return;
+    setSending(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch(`${getBackendURL()}/api/support`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message: complaint }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not save your message. Please try again.");
+      setSuccess("Your message has been saved for the support team. Thank you for contacting us.");
+      setComplaint("");
+    } catch (err) {
+      setError(err.message || "Could not connect. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -20,8 +40,20 @@ const Support = () => {
         
         <form onSubmit={handleSend} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-xs font-black uppercase tracking-widest text-black">Your Complaint / Feedback</label>
+            <label htmlFor="support-name" className="text-xs font-black uppercase tracking-widest text-black">Your name</label>
+            <input id="support-name" value={name} onChange={e => setName(e.target.value)} required maxLength={100} autoComplete="name" disabled={sending} className="w-full p-3 border-4 border-black outline-none focus:bg-emerald-50" />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="support-email" className="text-xs font-black uppercase tracking-widest text-black">Contact email</label>
+            <input id="support-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required maxLength={254} autoComplete="email" disabled={sending} className="w-full p-3 border-4 border-black outline-none focus:bg-emerald-50" />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="support-message" className="text-xs font-black uppercase tracking-widest text-black">Your Complaint / Feedback</label>
             <textarea
+              id="support-message"
+              minLength={10}
+              maxLength={5000}
+              disabled={sending}
               className="w-full min-h-[200px] p-4 border-4 border-black font-bold focus:bg-emerald-50 transition-colors outline-none rounded-none resize-none"
               placeholder="WRITE YOUR MESSAGE HERE..."
               value={complaint}
@@ -29,12 +61,15 @@ const Support = () => {
               required
             ></textarea>
           </div>
+          {error && <p role="alert" className="text-red-700 font-bold">{error}</p>}
+          {success && <p role="status" className="text-emerald-800 font-bold">{success}</p>}
 
           <button 
             type="submit" 
+            disabled={sending}
             className="w-full py-4 bg-slate-900 text-white font-black uppercase text-xl border-4 border-black shadow-[4px_4px_0px_0px_black] hover:bg-emerald-400 hover:text-black active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
           >
-            SEND MESSAGE →
+            {sending ? "Sending…" : "Send message →"}
           </button>
         </form>
       </div>

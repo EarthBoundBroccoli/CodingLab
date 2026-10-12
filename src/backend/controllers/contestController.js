@@ -1,120 +1,30 @@
 import axios from "axios";
+import mongoose from "mongoose";
 import { Contest } from "../models/Contest.js";
 import { Problem } from "../models/Problem.js";
 import { User } from "../models/User.js";
 import { Submission } from "../models/Submission.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
-import { calculateContestRatings } from "../utils/eloCalculator.js";
+import { processRatingsForContest } from "../utils/contestRatings.js";
+import { PUBLIC_PROBLEM_FIELDS } from "../utils/publicProblem.js";
+import { validateContestSchedule } from "../utils/contestSchedule.js";
 
-// Helper function to calculate and persist ELO rating changes for a contest
-const processRatingsForContest = async (contest) => {
-    if (!contest || contest.ratingsCalculated || !Array.isArray(contest.participants) || contest.participants.length === 0) {
-        return contest;
+const validateContestProblems = async problems => {
+    if (!Array.isArray(problems) || problems.length === 0) {
+        return "Contest must have at least 1 problem selected";
     }
-
-    try {
-        const sortedParticipants = [...contest.participants].sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            return a.penalty - b.penalty;
-        });
-
-        let currentRank = 1;
-        const rankedList = sortedParticipants.map((p, idx) => {
-            if (idx > 0) {
-                const prev = sortedParticipants[idx - 1];
-                if (p.score !== prev.score || p.penalty !== prev.penalty) {
-                    currentRank = idx + 1;
-                }
-            }
-            return {
-                userId: p.userId.toString(),
-                rank: currentRank,
-                score: p.score,
-                penalty: p.penalty
-            };
-        });
-
-        const userIds = rankedList.map(r => r.userId);
-        const statsList = await StudentStats.find({ userId: { $in: userIds } });
-        const statsMap = {};
-        statsList.forEach(s => { statsMap[s.userId.toString()] = s; });
-
-        const usersList = await User.find({ $or: [{ _id: { $in: userIds } }, { id: { $in: userIds } }] });
-        const userMap = {};
-        usersList.forEach(u => {
-            userMap[u._id.toString()] = u;
-            if (u.id) userMap[u.id.toString()] = u;
-        });
-
-        const eloInput = rankedList.map(r => {
-            const s = statsMap[r.userId];
-            const u = userMap[r.userId];
-            const oldRating = s?.contestRating || u?.rating || 1200;
-            return {
-                userId: r.userId,
-                name: u?.name || "Participant",
-                email: u?.email || "",
-                rank: r.rank,
-                score: r.score,
-                penalty: r.penalty,
-                oldRating
-            };
-        });
-
-        const calculatedResults = calculateContestRatings(eloInput);
-
-        for (const resItem of calculatedResults) {
-            const { userId, newRating, ratingChange, ratingTier } = resItem;
-
-            let statsDoc = await StudentStats.findOne({ userId });
-            if (!statsDoc) statsDoc = new StudentStats({ userId });
-
-            statsDoc.contestRating = newRating;
-            statsDoc.ratingTier = ratingTier;
-            statsDoc.maxRating = Math.max(statsDoc.maxRating || 1000, newRating);
-
-            const existingIdx = (statsDoc.ratingHistory || []).findIndex(
-                h => h.contestId?.toString() === contest._id.toString() || h.contestName === contest.name
-            );
-
-            const historyEntry = {
-                contestId: contest._id,
-                contestName: contest.name,
-                ratingChange,
-                newRating,
-                rank: resItem.rank,
-                date: new Date()
-            };
-
-            if (existingIdx >= 0) {
-                statsDoc.ratingHistory[existingIdx] = historyEntry;
-            } else {
-                if (!Array.isArray(statsDoc.ratingHistory)) statsDoc.ratingHistory = [];
-                statsDoc.ratingHistory.push(historyEntry);
-            }
-
-            await statsDoc.save();
-
-            const uDoc = await User.findOne({ $or: [{ _id: userId }, { id: userId }] });
-            if (uDoc) {
-                uDoc.rating = newRating;
-                await uDoc.save();
-            }
-
-            const pInContest = contest.participants.find(p => p.userId.toString() === userId.toString());
-            if (pInContest) {
-                pInContest.ratingChange = ratingChange;
-                pInContest.newRating = newRating;
-            }
-        }
-
-        contest.ratingsCalculated = true;
-        await contest.save();
-    } catch (err) {
-        console.error("Auto rating calculation error:", err);
+    if (problems.some(id => typeof id !== 'string' || !mongoose.isObjectIdOrHexString(id))) {
+        return "Every contest problem must have a valid problem ID";
     }
-    return contest;
+    if (new Set(problems.map(id => id.toLowerCase())).size !== problems.length) {
+        return "Select each contest problem only once";
+    }
+    const approvedCount = await Problem.countDocuments({ _id: { $in: problems }, status: 'approved' });
+    if (approvedCount !== problems.length) {
+        return "Every selected problem must exist and be approved. Refresh the problem list and try again.";
+    }
+    return null;
 };
 
 // Helper to auto-update contest status in DB if it changes
@@ -378,7 +288,7 @@ export const getAllContests = async (req, res) => {
 export const getContestById = async (req, res) => {
     try {
         let contest = await Contest.findById(req.params.id)
-            .populate("problems");
+            .populate({ path: "problems", match: { status: "approved" }, select: PUBLIC_PROBLEM_FIELDS });
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
@@ -405,15 +315,11 @@ export const createContest = async (req, res) => {
             return res.status(400).json({ message: "Name, startTime, and endTime are required" });
         }
         
-        const start = new Date(startTime);
-        const end = new Date(endTime);
-        if (end <= start) {
-            return res.status(400).json({ message: "endTime must be after startTime" });
-        }
+        const { start, end, error: scheduleError } = validateContestSchedule(startTime, endTime);
+        if (scheduleError) return res.status(400).json({ message: scheduleError });
 
-        if (!Array.isArray(problems) || problems.length === 0) {
-            return res.status(400).json({ message: "Contest must have at least 1 problem selected" });
-        }
+        const problemError = await validateContestProblems(problems);
+        if (problemError) return res.status(400).json({ message: problemError });
 
         const newContest = new Contest({
             name,
@@ -444,14 +350,21 @@ export const updateContest = async (req, res) => {
             return res.status(404).json({ message: "Contest not found" });
         }
 
+        const { start, end, error: scheduleError } = validateContestSchedule(
+            startTime !== undefined ? startTime : contest.startTime,
+            endTime !== undefined ? endTime : contest.endTime
+        );
+        if (scheduleError) return res.status(400).json({ message: scheduleError });
+
+        const selectedProblems = problems !== undefined ? problems : contest.problems.map(id => id.toString());
+        const problemError = await validateContestProblems(selectedProblems);
+        if (problemError) return res.status(400).json({ message: problemError });
+
         if (name !== undefined) contest.name = name;
         if (description !== undefined) contest.description = description;
-        if (startTime !== undefined) contest.startTime = new Date(startTime);
-        if (endTime !== undefined) contest.endTime = new Date(endTime);
+        if (startTime !== undefined) contest.startTime = start;
+        if (endTime !== undefined) contest.endTime = end;
         if (problems !== undefined) {
-            if (!Array.isArray(problems) || problems.length === 0) {
-                return res.status(400).json({ message: "Contest must have at least 1 problem selected" });
-            }
             contest.problems = problems;
         }
         if (status !== undefined) {
@@ -459,10 +372,6 @@ export const updateContest = async (req, res) => {
                 return res.status(400).json({ message: "Invalid status value" });
             }
             contest.status = status;
-        }
-
-        if (contest.endTime <= contest.startTime) {
-            return res.status(400).json({ message: "endTime must be after startTime" });
         }
 
         await contest.save();
@@ -582,9 +491,22 @@ export const submitToContest = async (req, res) => {
             return res.status(400).json({ message: "problemId, code, and language are required fields." });
         }
 
+        if (!mongoose.isObjectIdOrHexString(problemId)) {
+            return res.status(404).json({ message: "Problem not found." });
+        }
+        if (!mongoose.isObjectIdOrHexString(contestId)) {
+            return res.status(404).json({ message: "Contest not found." });
+        }
+
         const contest = await Contest.findById(contestId);
         if (!contest) {
             return res.status(404).json({ message: "Contest not found." });
+        }
+
+        // Reject unavailable problems before status updates, judging, or scoring.
+        const problem = await Problem.findOne({ _id: problemId, status: "approved" });
+        if (!problem) {
+            return res.status(404).json({ message: "Problem not found." });
         }
 
         // Auto-update status first
@@ -604,12 +526,6 @@ export const submitToContest = async (req, res) => {
         const isContestProblem = contest.problems.some(pId => pId.toString() === problemId.toString());
         if (!isContestProblem) {
             return res.status(400).json({ message: "This problem is not part of this contest." });
-        }
-
-        // 1. Fetch targeted problem document
-        const problem = await Problem.findById(problemId);
-        if (!problem) {
-            return res.status(404).json({ message: "Problem not found." });
         }
 
         const { hiddenInput: rawHiddenInput, hiddenOutput: rawHiddenOutput, memoryLimit, timeLimit } = problem;
@@ -794,7 +710,7 @@ export const submitContestSolution = submitToContest;
 
 // @desc    Calculate and update ELO ratings for all participants after contest ends
 // @route   POST /api/contests/:id/calculate-ratings
-// @access  Protected (Admin / Setter or trigger)
+// @access  Protected (Admin / Problem Setter)
 export const calculateContestRatingsForContest = async (req, res) => {
     try {
         const contestId = req.params.id;
@@ -804,21 +720,26 @@ export const calculateContestRatingsForContest = async (req, res) => {
             return res.status(404).json({ message: "Contest not found." });
         }
 
+        if (contest.status !== 'Ended' && new Date() <= new Date(contest.endTime)) {
+            return res.status(400).json({ message: "Ratings can only be calculated after the contest ends." });
+        }
+
+        const alreadyCalculated = contest.ratingsCalculated;
         contest = await autoUpdateContestStatus(contest);
 
         if (!contest.participants || contest.participants.length === 0) {
             return res.status(400).json({ message: "No participants registered in this contest." });
         }
 
-        // Force rating recalculation
-        contest.ratingsCalculated = false;
-        await processRatingsForContest(contest);
 
         return res.status(200).json({
-            message: `Successfully calculated and updated ELO ratings for ${contest.participants.length} participants!`,
+            message: alreadyCalculated
+                ? "Ratings were already calculated. Returning saved results."
+                : `Successfully calculated and updated ELO ratings for ${contest.participants.length} participants!`,
             contestId: contest._id,
             contestName: contest.name,
-            participants: contest.participants
+            participants: contest.participants,
+            ratingsCalculated: contest.ratingsCalculated
         });
     } catch (error) {
         console.error("Error calculating contest ratings:", error);

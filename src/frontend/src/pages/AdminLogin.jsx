@@ -1,28 +1,33 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { isAdminAuthenticated, loginAdmin } from "../lib/admin-auth";
+import { loginAdmin } from "../lib/admin-auth";
+import { useAdminAccess } from "../hooks/useAdminAccess";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { user, loading } = useAdminAccess();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setError("");
-
-    const success = loginAdmin(email, password);
-
-    if (success) {
+    setSubmitting(true);
+    try {
+      await loginAdmin(email.trim(), password);
       navigate("/admin/dashboard", { replace: true });
-      return;
+    } catch (error) {
+      setError(error.message || "Unable to sign in. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    setError("Invalid credentials");
   };
 
-  if (isAdminAuthenticated()) {
+  if (loading) return <p className="p-8" role="status">Checking session...</p>;
+  if (user) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
@@ -57,7 +62,7 @@ const AdminLogin = () => {
               </label>
               <input
                 type="password"
-                placeholder="admin123"
+                placeholder="Enter your password"
                 className="w-full p-3 border-4 border-black font-black focus:bg-emerald-400 transition-colors outline-none rounded-none"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -73,9 +78,10 @@ const AdminLogin = () => {
 
             <button
               type="submit"
+              disabled={submitting}
               className="w-full py-4 bg-slate-900 text-white font-black uppercase text-xl border-4 border-black shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all hover:bg-emerald-400 hover:text-black cursor-pointer"
             >
-              Proceed
+              {submitting ? "Signing in..." : "Proceed"}
             </button>
           </form>
         </div>

@@ -33,12 +33,17 @@ const studentStatsSchema = new mongoose.Schema({
   
   // Competitive stats
   contestRating: { type: Number, default: 1000 },
+  maxRating: { type: Number, default: 1000 },
   ratingTier: { type: String, default: "NOVICE" },
   points: { type: Number, default: 0 },
   ratingHistory: [{
+    contestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contest' },
     contestName: String,
+    oldRating: Number,
     ratingChange: String,
-    newRating: Number
+    newRating: Number,
+    rank: Number,
+    date: Date
   }]
 }, { 
   timestamps: true 

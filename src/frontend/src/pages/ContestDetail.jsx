@@ -53,6 +53,8 @@ const ContestDetail = () => {
   const [registering, setRegistering] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [calculatingRatings, setCalculatingRatings] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [solvedProblemIds, setSolvedProblemIds] = useState(() => new Set());
 
   const showToast = (message) => {
     setToast(message);

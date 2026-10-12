@@ -5,6 +5,7 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import axios from "axios";
 import { getBackendURL, useSession } from "../lib/auth-client";
 import { renderMarkdown } from "../lib/markdown";
+import { readEditorPreferences, registerEditorThemes } from "../lib/editor-preferences";
 import { Loader2, AlertCircle, Play, Send, ChevronLeft, Trophy, Clock } from "lucide-react";
 
 const badgeForDifficulty = (difficulty) => {
@@ -41,9 +42,10 @@ const ContestProblem = () => {
   const [timeRemaining, setTimeRemaining] = useState("");
   const [submissionStatus, setSubmissionStatus] = useState("NEUTRAL");
 
-  const [language, setLanguage] = useState("cpp");
-  const [codeValue, setCodeValue] = useState(boilerplates.cpp);
-  const prevLanguage = useRef("cpp");
+  const [editorPreferences] = useState(() => readEditorPreferences());
+  const [language, setLanguage] = useState(editorPreferences.language);
+  const [codeValue, setCodeValue] = useState(() => boilerplates[language]);
+  const prevLanguage = useRef(language);
 
   // Console execution states
   const [activeTab, setActiveTab] = useState("input");
@@ -126,20 +128,6 @@ const ContestProblem = () => {
 
     return () => clearInterval(interval);
   }, [contest]);
-
-  const handleEditorBeforeMount = (monaco) => {
-    monaco.editor.defineTheme("codinglab-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#020617",
-        "editor.lineHighlightBackground": "#0f172a",
-        "editorLineNumber.foreground": "#475569",
-        "editorLineNumber.activeForeground": "#10b981",
-      },
-    });
-  };
 
   const handleRunCode = async () => {
     setIsRunningSandbox(true);
@@ -416,11 +404,11 @@ const ContestProblem = () => {
                 <div className="flex-1 min-h-0 relative">
                   <Editor
                     height="100%"
-                    theme="codinglab-dark"
+                    theme={editorPreferences.theme}
                     language={language}
                     value={codeValue}
                     onChange={(value) => setCodeValue(value || "")}
-                    beforeMount={handleEditorBeforeMount}
+                    beforeMount={registerEditorThemes}
                     loading={
                       <div className="flex flex-col items-center justify-center h-full bg-[#020617] text-slate-400 space-y-3 font-mono">
                         <Loader2 className="animate-spin text-emerald-400" size={32} />
@@ -428,6 +416,9 @@ const ContestProblem = () => {
                       </div>
                     }
                     options={{
+                      tabSize: editorPreferences.tabSize,
+                      insertSpaces: true,
+                      detectIndentation: false,
                       minimap: { enabled: false },
                       fontSize: 14,
                       fontFamily: "Fira Code, Courier New, monospace",

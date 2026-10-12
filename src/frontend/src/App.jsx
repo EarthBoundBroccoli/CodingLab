@@ -24,6 +24,7 @@ import Settings from "./pages/Settings";
 
 // Admin components
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSupport from "./pages/admin/AdminSupport";
 import AdminProblemRequests from "./pages/admin/AdminProblemRequests";
 import AdminContests from "./pages/admin/AdminContests";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
@@ -183,6 +184,7 @@ function AppContent() {
             <Route element={<AdminLayout />}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="support" element={<AdminSupport />} />
               <Route path="setter-approvals" element={<SetterApprovals />} />
               <Route path="problem-requests" element={<AdminProblemRequests />} />
               <Route path="contests" element={<AdminContests />} />

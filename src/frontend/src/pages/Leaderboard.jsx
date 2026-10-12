@@ -9,24 +9,30 @@ const Leaderboard = () => {
     const [error, setError] = useState("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [refresh, setRefresh] = useState(0);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchUniversities = async () => {
             setLoading(true);
+            setError("");
             try {
-                const res = await fetch(`${getBackendURL()}/api/leaderboard/universities?page=${page}&limit=10`);
+                const res = await fetch(`${getBackendURL()}/api/leaderboard/universities?page=${page}&limit=10`, { signal: controller.signal });
                 if (!res.ok) throw new Error("Failed to fetch leaderboard");
                 const data = await res.json();
+                if (controller.signal.aborted) return;
                 setUniversities(data.universities);
                 setTotalPages(data.totalPages);
+                setPage(data.currentPage);
             } catch (err) {
-                setError(err.message);
+                if (!controller.signal.aborted) setError(err.message);
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
         fetchUniversities();
-    }, [page]);
+        return () => controller.abort();
+    }, [page, refresh]);
 
     return (
         <div className="container mx-auto p-4 md:p-8 max-w-5xl">
@@ -42,13 +48,14 @@ const Leaderboard = () => {
                     See which campus dominates the algorithm arena.
                 </p>
                 <p className="text-sm font-bold bg-white inline-block mt-4 px-3 py-1 border-2 border-black uppercase shadow-[2px_2px_0px_0px_black]">
-                    *Scores are calculated using the sum of the Top 10 highest-rated competitive programmers per university.
+                    *Scores are calculated using the sum of the Top 10 ratings per university. Students and problem setters count; equal scores share a rank.
                 </p>
             </div>
 
             {error && (
                 <div className="bg-red-400 p-4 border-4 border-black font-bold text-black mb-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                     {error}
+                    <button type="button" onClick={() => setRefresh(value => value + 1)} className="block underline mt-2">Try again</button>
                 </div>
             )}
 
@@ -56,12 +63,13 @@ const Leaderboard = () => {
                 <div className="flex justify-center p-12">
                     <Loader className="animate-spin text-black" size={48} strokeWidth={3} />
                 </div>
-            ) : (
+            ) : error ? null : (
                 <div className="flex flex-col gap-4">
-                    {universities.map((uni, index) => {
-                        const globalRank = (page - 1) * 10 + index + 1;
+                    {!universities.length && !error && <p className="bg-white border-2 border-black p-6 text-sm">No university rankings yet. Join a university in your profile settings to participate.</p>}
+                    {universities.map((uni) => {
+                        const globalRank = uni.rank;
                         let bgClass = "bg-white";
-                        let textClass = "text-black";
+                        const textClass = "text-black";
                         
                         // Top 3 specific coloring
                         if (globalRank === 1) bgClass = "bg-amber-300"; // Gold

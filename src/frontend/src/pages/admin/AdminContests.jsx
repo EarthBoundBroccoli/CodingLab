@@ -165,8 +165,7 @@ const AdminContests = () => {
       const response = await fetch(url, {
         method,
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": "admin123"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify(payload)
@@ -203,9 +202,6 @@ const AdminContests = () => {
       const id = deletingContest._id || deletingContest.id;
       const response = await fetch(`${getBackendURL()}/api/contests/${id}`, {
         method: "DELETE",
-        headers: {
-          "x-admin-token": "admin123"
-        },
         credentials: "include"
       });
 
@@ -229,9 +225,6 @@ const AdminContests = () => {
       const id = endingContest._id || endingContest.id;
       const response = await fetch(`${getBackendURL()}/api/contests/${id}/end`, {
         method: "PUT",
-        headers: {
-          "x-admin-token": "admin123"
-        },
         credentials: "include"
       });
 

@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema({
   institution: String,
   university: { type: mongoose.Schema.Types.ObjectId, ref: 'University' },
   rating: { type: Number, default: 0 },
+  banned: { type: Boolean, default: false },
+  banReason: { type: String, default: '' },
+  disabledAt: { type: Date, default: null },
 }, { 
   strict: false, // Allows flexible integration with Better Auth fields
   timestamps: true 

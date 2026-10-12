@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { getBackendURL, useSession, authClient } from "../lib/auth-client";
+import { readEditorPreferences } from "../lib/editor-preferences";
 import { 
   User as UserIcon, Code2, Shield, Building, Save, CheckCircle2, AlertCircle
 } from "lucide-react";
@@ -26,10 +27,11 @@ const Settings = () => {
     website: ""
   });
 
-  const [preferredLang, setPreferredLang] = useState(() => localStorage.getItem("cl_pref_lang") || "cpp");
-  const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem("cl_editor_theme") || "vs-dark");
-  const [tabSize, setTabSize] = useState(() => localStorage.getItem("cl_tab_size") || "4");
-  const [keybinding, setKeybinding] = useState(() => localStorage.getItem("cl_keybinding") || "standard");
+  const [savedEditorPreferences] = useState(() => readEditorPreferences());
+  const [preferredLang, setPreferredLang] = useState(savedEditorPreferences.language);
+  const [editorTheme, setEditorTheme] = useState(savedEditorPreferences.theme);
+  const [tabSize, setTabSize] = useState(String(savedEditorPreferences.tabSize));
+  const [keybinding, setKeybinding] = useState(savedEditorPreferences.keybinding);
 
   const [universities, setUniversities] = useState([]);
 
@@ -318,7 +320,7 @@ const Settings = () => {
                 <option value="cpp">C++20 (GCC 13.2)</option>
                 <option value="python">Python 3.12</option>
                 <option value="java">Java 21</option>
-                <option value="javascript">JavaScript (Node.js 20)</option>
+                <option value="javascript" disabled>JavaScript (unavailable)</option>
               </select>
             </div>
 
@@ -329,6 +331,7 @@ const Settings = () => {
                 onChange={(e) => setEditorTheme(e.target.value)}
                 className="select select-bordered w-full border-2 border-black font-bold text-sm rounded-none focus:outline-none"
               >
+                <option value="codinglab-dark">CodingLab Dark</option>
                 <option value="vs-dark">VS Code Dark</option>
                 <option value="monokai">Monokai Dark</option>
                 <option value="github-dark">GitHub Dark Theme</option>
@@ -356,8 +359,8 @@ const Settings = () => {
                 className="select select-bordered w-full border-2 border-black font-bold text-sm rounded-none focus:outline-none"
               >
                 <option value="standard">Standard Cursor</option>
-                <option value="vim">Vim Keybindings Mode</option>
-                <option value="emacs">Emacs Keybindings Mode</option>
+                <option value="vim" disabled>Vim (unavailable)</option>
+                <option value="emacs" disabled>Emacs (unavailable)</option>
               </select>
             </div>
           </div>

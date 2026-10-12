@@ -1,7 +1,8 @@
+import HomeContests from "../components/HomeContests";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSession, getBackendURL } from "../lib/auth-client";
-import { Target, Code2, Award, Zap, Loader2, TrendingUp } from "lucide-react";
+import { Target, Award, Zap, Loader2, TrendingUp } from "lucide-react";
 
 const LandingPage = () => {
   const { data: session, isPending } = useSession();
@@ -61,13 +62,6 @@ const LandingPage = () => {
     };
     fetchProblems();
   }, []);
-
-  // Placeholder data for contests
-  const contests = [
-    { id: 1, title: "CodingLab Round #102 (Div. 2)", host: "Admin", endsAt: "May 25, 2026" },
-    { id: 2, title: "Educational Round #15", host: "ProblemSetter_X", endsAt: "June 02, 2026" },
-    { id: 3, title: "Algorithm Masters 2026", host: "CodingClub", endsAt: "June 10, 2026" },
-  ];
 
   if (isPending) return (
     <div className="flex justify-center items-center min-h-[60vh]">
@@ -196,28 +190,7 @@ const LandingPage = () => {
         {/* Right Side: Contests & Stats (40%) */}
         <div className="lg:w-[40%] space-y-8">
           
-          {/* Live Contests Card */}
-          <div className="bg-white neo-brutal rounded-none overflow-hidden">
-            <div className="bg-emerald-400 p-4 border-b-4 border-black">
-              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight">Live Contests</h2>
-            </div>
-            <div className="divide-y-2 divide-black">
-              {contests.map((contest) => (
-                <Link key={contest.id} to={getRedirectPath("#")} className="p-4 flex justify-between items-start hover:bg-emerald-50 transition-colors cursor-pointer">
-                  <div className="space-y-1">
-                    <h3 className="font-black text-md leading-tight uppercase italic text-black">{contest.title}</h3>
-                    <p className="text-xs font-black opacity-60 uppercase">By {contest.host}</p>
-                  </div>
-                  <div className="text-right min-w-[100px]">
-                    <span className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 shadow-[2px_2px_0px_0px_#10b981]">Ends: {contest.endsAt}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            <div className="p-4 text-center border-t-4 border-black bg-slate-900">
-              <Link to={getRedirectPath("/contests")} className="font-black uppercase text-white hover:text-emerald-400 transition-colors w-full flex justify-center">See More Contests</Link>
-            </div>
-          </div>
+          <HomeContests linkFor={getRedirectPath} />
 
           {/* Growth Stats Card */}
           <div className="bg-white neo-brutal rounded-none overflow-hidden">

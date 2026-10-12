@@ -1,19 +1,21 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { getBackendURL, useSession } from "../lib/auth-client";
+import { buildYearActivity } from "../lib/profile-activity";
 import { 
     ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid 
 } from "recharts";
-import { 
-    Trophy, Flame, Award, Shield, User as UserIcon, Calendar, CheckCircle2, TrendingUp, Sparkles, Building, ChevronDown
-} from "lucide-react";
+
 
 const Profile = () => {
-    const navigate = useNavigate();
-    const { data: session } = useSession();
+    const { data: session, isPending } = useSession();
     const { userId: paramUserId } = useParams();
-    const [selectedYear, setSelectedYear] = useState(2026);
+    const isOwnProfile = !paramUserId || paramUserId === session?.user?.id;
+    const targetId = paramUserId || session?.user?.id;
+    const [attempt, setAttempt] = useState(0);
+    const [currentYear] = useState(() => new Date().getUTCFullYear());
+    const [selectedYear, setSelectedYear] = useState(currentYear);
 
     const [profileData, setProfileData] = useState({
         user: null,
@@ -23,111 +25,57 @@ const Profile = () => {
     });
 
     useEffect(() => {
+        if (isPending || !targetId) return;
+        const controller = new AbortController();
+        const options = { withCredentials: true, signal: controller.signal, timeout: 15000 };
         const fetchProfile = async () => {
             try {
-                setProfileData(prev => ({ ...prev, loading: true }));
-
-                if (paramUserId && paramUserId !== session?.user?.id) {
-                    // Fetch target public profile
-                    const [publicRes, statsRes] = await Promise.all([
-                        axios.get(`${getBackendURL()}/api/users/profile/${paramUserId}`),
-                        axios.get(`${getBackendURL()}/api/submissions/stats?userId=${paramUserId}`)
-                    ]);
-
-                    setProfileData({
-                        user: publicRes.data.user,
-                        stats: {
-                            ...statsRes.data,
-                            ...publicRes.data.stats,
-                            campusRank: publicRes.data.campusRank,
-                            university: publicRes.data.user?.university
-                        },
-                        loading: false,
-                        error: null
-                    });
-                } else {
-                    // Fetch logged-in user profile
-                    const [statsRes, leaderboardRes] = await Promise.all([
-                        axios.get(`${getBackendURL()}/api/submissions/user-stats`, { withCredentials: true }),
-                        axios.get(`${getBackendURL()}/api/leaderboard/me`, { withCredentials: true })
-                    ]);
-
-                    setProfileData({
-                        user: session?.user || { name: "User", email: "", role: "student" },
-                        stats: {
-                            ...statsRes.data,
-                            campusRank: leaderboardRes.data.campusRank || null,
-                            university: leaderboardRes.data.university || null
-                        },
-                        loading: false,
-                        error: null
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to load profile details:", err);
-                setProfileData(prev => ({ ...prev, loading: false, error: "Failed to load profile details." }));
+                const [statsResult, identityResult] = await Promise.allSettled([
+                    axios.get(`${getBackendURL()}/api/submissions/user-stats`, {
+                        ...options, params: isOwnProfile ? {} : { userId: targetId }
+                    }),
+                    axios.get(`${getBackendURL()}${isOwnProfile ? '/api/leaderboard/me' : `/api/users/profile/${targetId}`}`, options)
+                ]);
+                if (controller.signal.aborted) return;
+                if (statsResult.status === 'rejected') throw statsResult.reason;
+                if (!isOwnProfile && identityResult.status === 'rejected') throw identityResult.reason;
+                const identity = identityResult.status === 'fulfilled' ? identityResult.value.data : null;
+                setProfileData({
+                    targetId,
+                    user: isOwnProfile ? session.user : identity.user,
+                    stats: {
+                        ...statsResult.value.data,
+                        campusRank: identity?.campusRank ?? null,
+                        university: isOwnProfile ? identity?.university : identity?.user?.university
+                    },
+                    warning: !identity ? "Campus rank is unavailable right now. Your competitive stats are still shown." : "",
+                    loading: false, error: null
+                });
+            } catch (error) {
+                if (!controller.signal.aborted) setProfileData({
+                    targetId, user: null, stats: null, loading: false,
+                    error: error.response?.status === 404 ? "This student profile was not found." : "Unable to load this profile. Please try again."
+                });
             }
         };
-
         fetchProfile();
-    }, [session, paramUserId]);
+        return () => controller.abort();
+    }, [session, isPending, targetId, isOwnProfile, attempt]);
 
-    const heatmap365 = profileData.stats?.heatmap365 || [];
+    const retry = () => {
+        setProfileData(previous => ({ ...previous, loading: true }));
+        setAttempt(value => value + 1);
+    };
 
-    // Generate realistic multi-year contribution activity (2026 & 2025)
     const yearlyContributions = useMemo(() => {
-        const buildYear = (yearTarget, seedVal) => {
-            const list = [];
-            let total = 0;
-            const startDate = new Date(yearTarget, 0, 1);
-            const daysInYr = 365;
+        const activity = profileData.stats?.activityHistory || [];
+        const years = new Set([currentYear, currentYear - 1]);
+        activity.forEach(item => years.add(Number(item.date.slice(0, 4))));
+        return Object.fromEntries([...years].map(year => [year, buildYearActivity(activity, year)]));
+    }, [profileData.stats?.activityHistory, currentYear]);
+    const availableYears = Object.keys(yearlyContributions).map(Number).sort((a, b) => b - a);
 
-            // Build map of actual DB submissions if present
-            const dbMap = {};
-            (heatmap365 || []).forEach(item => {
-                if (item.date) dbMap[item.date] = item.count;
-            });
-
-            for (let i = 0; i < daysInYr; i++) {
-                const d = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-                const dateStr = d.toISOString().split('T')[0];
-
-                let count = dbMap[dateStr] || 0;
-                
-                if (!count) {
-                    // Generate organic activity noise with active streak clusters & quiet weekends
-                    const weekIdx = Math.floor(i / 7);
-                    let noise = Math.sin(i * 9.8765 + seedVal) * 43758.5453;
-                    noise = Math.abs(noise - Math.floor(noise));
-
-                    const isActiveSeason = (weekIdx >= 6 && weekIdx <= 16) || (weekIdx >= 22 && weekIdx <= 36) || (weekIdx >= 41 && weekIdx <= 49);
-
-                    if (isActiveSeason) {
-                        if (noise > 0.35) count = Math.floor(noise * 7) + 1; // 1 to 7
-                    } else {
-                        if (noise > 0.68) count = Math.floor(noise * 3) + 1; // 1 to 3
-                    }
-                }
-
-                let level = 0;
-                if (count === 1) level = 1;
-                else if (count >= 2 && count <= 3) level = 2;
-                else if (count >= 4 && count <= 6) level = 3;
-                else if (count >= 7) level = 4;
-
-                total += count;
-                list.push({ date: dateStr, count, level });
-            }
-            return { data: list, total };
-        };
-
-        return {
-            2026: buildYear(2026, 142),
-            2025: buildYear(2025, 987)
-        };
-    }, [heatmap365]);
-
-    if (profileData.loading) {
+    if (isPending || profileData.loading || profileData.targetId !== targetId) {
         return (
             <div className="min-h-[80vh] flex items-center justify-center bg-base-200">
                 <div className="flex flex-col items-center gap-4">
@@ -138,22 +86,31 @@ const Profile = () => {
         );
     }
 
+    if (profileData.error) return (
+        <div className="max-w-3xl mx-auto my-12 p-8 bg-white neo-brutal space-y-4" role="alert">
+            <p>{profileData.error}</p>
+            <button type="button" className="btn rounded-none bg-slate-900 text-white" onClick={retry}>Try again</button>
+        </div>
+    );
+
     const { user, stats } = profileData;
     const cfStats = stats?.codeforcesStats || {
         solvedAllTime: stats?.totalSolved || 0,
-        solvedLastYear: Math.floor((stats?.totalSolved || 0) * 0.8),
-        solvedLastMonth: Math.floor((stats?.totalSolved || 0) * 0.3),
+        solvedLastYear: 0,
+        solvedLastMonth: 0,
         maxStreakAllTime: stats?.longestStreak || 0,
-        maxStreakLastYear: stats?.longestStreak || 0,
-        maxStreakLastMonth: stats?.currentStreak || 0
+        maxStreakLastYear: 0,
+        maxStreakLastMonth: 0
     };
 
-    const rating = stats?.contestRating || 1000;
+    const rating = stats?.contestRating ?? 1000;
+    const maxRating = Math.max(rating, stats?.maxRating ?? rating);
     const ratingTier = stats?.ratingTier || "NOVICE";
     const ratingHistory = stats?.ratingHistory || [];
 
-    const activeYearObj = yearlyContributions[selectedYear] || yearlyContributions[2026];
-    const displayHeatmap = activeYearObj.data;
+    const activeYearObj = yearlyContributions[selectedYear] || yearlyContributions[currentYear];
+    const firstWeekday = new Date(Date.UTC(selectedYear, 0, 1)).getUTCDay();
+    const displayHeatmap = [...Array(firstWeekday).fill(null), ...activeYearObj.data];
     const totalYearContributions = activeYearObj.total;
 
     // Helper for tier color styling
@@ -169,307 +126,107 @@ const Profile = () => {
     };
 
     return (
-        <div className="max-w-[1400px] mx-auto py-12 px-4 lg:px-8 space-y-10 selection:bg-emerald-400 selection:text-black">
-            
-            {/* 1. Header Block: User Profile Card & Competitive Badges */}
-            <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] neo-brutal">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 border-b-4 border-black pb-8">
-                    
-                    {/* Left: User Identity */}
-                    <div className="flex items-center gap-6">
-                        <div className="relative">
-                            <div className="w-24 h-24 rounded-none bg-emerald-400 border-4 border-black shadow-[4px_4px_0px_0px_black] flex items-center justify-center overflow-hidden">
-                                {user?.image ? (
-                                    <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <span className="text-4xl font-black text-black">
-                                        {user?.name?.[0]?.toUpperCase() || "U"}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="absolute -bottom-2 -right-2 bg-black text-white p-1.5 border-2 border-black">
-                                <Shield size={16} />
-                            </div>
+        <div className="max-w-[1400px] mx-auto py-8 px-4 lg:px-8 text-black">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h1 className="text-3xl font-black uppercase font-spartan tracking-tight">Profile</h1>
+                {isOwnProfile && <Link to="/growth" className="text-sm font-bold underline underline-offset-4">View practice progress</Link>}
+            </div>
+            {profileData.warning && <p role="status" className="bg-white border-2 border-black p-4 mb-6 text-sm">{profileData.warning} <button type="button" className="underline font-bold" onClick={retry}>Retry</button></p>}
+
+            <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-8 items-start">
+                <aside className="bg-white neo-brutal overflow-hidden">
+                    <div className="p-6 border-b-2 border-black">
+                        <div className="w-20 h-20 bg-emerald-400 border-2 border-black flex items-center justify-center mb-4 overflow-hidden">
+                            {user?.image ? <img src={user.image} alt={user.name} className="w-full h-full object-cover" /> : <span className="text-3xl font-black">{user?.name?.[0]?.toUpperCase() || 'U'}</span>}
                         </div>
-
-                        <div className="space-y-1 text-black">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-4xl font-black uppercase font-spartan tracking-tight">
-                                    {user?.name || "Competitive Student"}
-                                </h1>
-                                <span className={`px-3 py-0.5 text-xs font-black uppercase border-2 ${getTierBadgeStyle(ratingTier)}`}>
-                                    {ratingTier}
-                                </span>
-                            </div>
-
-                            <p className="font-mono text-sm opacity-70 font-bold">{user?.email}</p>
-
-                            <div className="flex flex-wrap items-center gap-4 text-xs font-bold pt-1">
-                                <span className="flex items-center gap-1.5 bg-slate-100 border-2 border-black px-3 py-1 uppercase shadow-[2px_2px_0px_0px_black]">
-                                    <Building size={14} className="text-emerald-600" />
-                                    {stats?.university?.name || "University Campus Member"}
-                                </span>
-                                <span className="flex items-center gap-1.5 bg-slate-100 border-2 border-black px-3 py-1 uppercase shadow-[2px_2px_0px_0px_black]">
-                                    <UserIcon size={14} className="text-amber-500" />
-                                    Role: {user?.role || "student"}
-                                </span>
-                            </div>
+                        <h2 className="text-2xl font-black font-spartan break-words">{user?.name || 'Student'}</h2>
+                        {isOwnProfile && <p className="text-xs text-slate-500 mt-1 break-all">{user?.email}</p>}
+                        <p className="text-sm font-bold mt-3">{stats?.university?.name || 'University not listed'}</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            <span className={`px-2 py-1 text-[10px] font-black uppercase border-2 ${getTierBadgeStyle(ratingTier)}`}>{ratingTier}</span>
+                            <span className="px-2 py-1 text-[10px] font-bold uppercase border-2 border-black">{user?.role?.replaceAll('_', ' ') || 'student'}</span>
                         </div>
                     </div>
-
-                    {/* Right: Key Competitive ELO Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full lg:w-auto">
-                        <div className="bg-emerald-50 border-3 border-black p-4 text-center space-y-1 shadow-[4px_4px_0px_0px_black]">
-                            <TrendingUp size={24} className="mx-auto text-emerald-600" />
-                            <div className="text-3xl font-black text-black">{rating}</div>
-                            <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider">ELO Rating</div>
-                        </div>
-
-                        <div className="bg-sky-50 border-3 border-black p-4 text-center space-y-1 shadow-[4px_4px_0px_0px_black]">
-                            <Trophy size={24} className="mx-auto text-sky-600" />
-                            <div className="text-3xl font-black text-black">{Math.max(rating, 1000)}</div>
-                            <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Max Rating</div>
-                        </div>
-
-                        <div className="bg-amber-50 border-3 border-black p-4 text-center space-y-1 shadow-[4px_4px_0px_0px_black]">
-                            <Award size={24} className="mx-auto text-amber-600" />
-                            <div className="text-3xl font-black text-black">
-                                {stats?.campusRank ? `#${stats.campusRank}` : "N/A"}
-                            </div>
-                            <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Campus Rank</div>
-                        </div>
-
-                        <div className="bg-purple-50 border-3 border-black p-4 text-center space-y-1 shadow-[4px_4px_0px_0px_black]">
-                            <Sparkles size={24} className="mx-auto text-purple-600" />
-                            <div className="text-3xl font-black text-black">{cfStats.solvedAllTime}</div>
-                            <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Total Solved</div>
-                        </div>
+                    <dl className="divide-y divide-slate-200 px-6 text-sm">
+                        {[
+                            ['Contest rating', rating], ['Peak rating', maxRating],
+                            ['Campus rank', profileData.warning ? 'Unavailable' : stats?.campusRank ? `#${stats.campusRank}` : 'Unranked'],
+                            ['Problems solved', cfStats.solvedAllTime],
+                            ['Longest streak', `${stats?.longestStreak ?? 0} days`], ['Rated contests', ratingHistory.length]
+                        ].map(([label, value]) => <div key={label} className="py-3 flex justify-between items-center gap-3"><dt className="text-slate-600">{label}</dt><dd className="font-black tabular-nums">{value}</dd></div>)}
+                    </dl>
+                    <div className="p-5 border-t-2 border-black flex flex-col gap-3">
+                        {isOwnProfile && <Link to="/settings" className="btn btn-sm rounded-none bg-slate-900 text-white font-black uppercase border-2 border-black">Edit profile</Link>}
+                        <Link to={stats?.university?._id ? `/leaderboard/university/${stats.university._id}` : '/leaderboard'} className="text-center text-xs font-bold underline underline-offset-4">View leaderboard</Link>
                     </div>
+                </aside>
+
+                <div className="min-w-0 space-y-8">
+                    <section className="bg-white neo-brutal overflow-hidden">
+                        <div className="bg-sky-400 px-5 py-4 border-b-4 border-black flex flex-wrap justify-between items-center gap-3">
+                            <h2 className="text-xl font-black uppercase font-spartan tracking-tight">Solving activity</h2>
+                            <select aria-label="Activity year" value={selectedYear} onChange={event => setSelectedYear(Number(event.target.value))} className="bg-white border-2 border-black px-2 py-1 text-xs font-bold rounded-none">
+                                {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                            </select>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <p className="text-sm"><strong>{totalYearContributions}</strong> accepted submissions in {selectedYear}</p>
+                            <div className="overflow-x-auto pb-2">
+                                <div className="min-w-max">
+                                    <div className="relative h-5 ml-7 text-[10px] text-slate-500">
+                                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => {
+                                            const dayOffset = (Date.UTC(selectedYear, index, 1) - Date.UTC(selectedYear, 0, 1)) / 86400000;
+                                            return <span key={month} className="absolute" style={{ left: `${Math.floor((firstWeekday + dayOffset) / 7) * 15}px` }}>{month}</span>;
+                                        })}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="grid grid-rows-7 gap-[3px] w-5 text-[9px] text-slate-500">
+                                            {['', 'Mon', '', 'Wed', '', 'Fri', ''].map((day, index) => <span key={index} className="h-3 leading-3">{day}</span>)}
+                                        </div>
+                                        <div className="inline-grid grid-rows-7 grid-flow-col gap-[3px]">
+                                            {displayHeatmap.map((day, index) => <div key={day?.date || `padding-${index}`}
+                                                title={day ? `${day.count} accepted submissions on ${day.date} (UTC)` : undefined}
+                                                className={`w-3 h-3 ${!day ? '' : day.level === 0 ? 'bg-slate-100 border border-slate-200' : day.level === 1 ? 'bg-emerald-200' : day.level === 2 ? 'bg-emerald-400' : day.level === 3 ? 'bg-emerald-600' : 'bg-emerald-800'}`} />)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap justify-between items-center gap-3 text-xs text-slate-500">
+                                <details><summary className="cursor-pointer underline underline-offset-2">How activity is counted</summary><p className="max-w-sm mt-2">Accepted submissions include repeat solutions. Solved totals count each problem once. Activity and streaks use UTC days.</p></details>
+                                <div className="flex items-center gap-1" aria-label="Activity increases from light to dark green"><span className="mr-1">Less</span>{['bg-slate-100', 'bg-emerald-200', 'bg-emerald-400', 'bg-emerald-600', 'bg-emerald-800'].map(color => <span key={color} className={`w-3 h-3 ${color}`} />)}<span className="ml-1">More</span></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="bg-white neo-brutal overflow-hidden">
+                        <div className="bg-sky-400 px-5 py-4 border-b-4 border-black"><h2 className="text-xl font-black uppercase font-spartan tracking-tight">Contest rating</h2></div>
+                        {ratingHistory.length ? <>
+                            <div className="h-60 p-4 sm:p-6">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={ratingHistory} margin={{ top: 10, right: 10, bottom: 5, left: -15 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="contestName" fontSize={11} tickLine={false} minTickGap={30} />
+                                        <YAxis fontSize={11} tickLine={false} domain={['dataMin - 100', 'dataMax + 100']} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#fff', border: '2px solid black', fontSize: '12px' }} />
+                                        <Line name="Rating" type="linear" dataKey="newRating" stroke="#0284c7" strokeWidth={2} dot={{ r: 3 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="overflow-x-auto border-t-2 border-black">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-100 text-[10px] uppercase border-b-2 border-black"><tr>{['Contest', 'Rank', 'Change', 'Rating'].map(label => <th key={label} className="px-5 py-3 font-black">{label}</th>)}</tr></thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {[...ratingHistory].reverse().map((item, index) => <tr key={item.contestId || index} className="hover:bg-slate-50">
+                                            <td className="px-5 py-3 font-bold">{item.contestName}</td><td className="px-5 py-3 tabular-nums">{item.rank ? `#${item.rank}` : '?'}</td>
+                                            <td className={`px-5 py-3 font-bold tabular-nums ${Number(item.ratingChange) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{item.ratingChange}</td><td className="px-5 py-3 tabular-nums">{item.newRating}</td>
+                                        </tr>)}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </> : <div className="p-8 text-sm text-slate-600 space-y-3"><p>No rated contests yet. Your results will appear here after your first rated contest.</p>{isOwnProfile && <Link to="/contests" className="font-bold underline underline-offset-4 text-black">Browse contests</Link>}</div>}
+                    </section>
                 </div>
             </div>
-
-            {/* 2. Codeforces-Style Solves & Streak Matrix */}
-            <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] neo-brutal">
-                <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
-                    <div className="flex items-center gap-3">
-                        <Flame className="text-amber-500 fill-amber-500" size={28} />
-                        <h2 className="text-2xl font-black uppercase text-black tracking-tight font-spartan">
-                            Codeforces Solves & Streak Matrix
-                        </h2>
-                    </div>
-                    <span className="bg-black text-white text-xs font-black px-3 py-1 uppercase tracking-widest border-2 border-black">
-                        Competitive Stats
-                    </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-black font-mono text-sm leading-relaxed">
-                    {/* Left Column: Solved Metrics */}
-                    <div className="bg-slate-50 border-3 border-black p-6 space-y-4 shadow-[4px_4px_0px_0px_black]">
-                        <div className="flex justify-between items-center border-b-2 border-slate-300 pb-3">
-                            <span className="font-bold text-slate-600">All-Time Solved:</span>
-                            <span className="font-black text-sm md:text-base text-emerald-600">
-                                {cfStats.solvedAllTime} problems solved for all time
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center border-b-2 border-slate-300 pb-3">
-                            <span className="font-bold text-slate-600">Last 365 Days:</span>
-                            <span className="font-black text-sm md:text-base text-slate-800">
-                                {cfStats.solvedLastYear} problems solved for the last year
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-slate-600">Last 30 Days:</span>
-                            <span className="font-black text-sm md:text-base text-slate-800">
-                                {cfStats.solvedLastMonth} problems solved for the last month
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Right Column: Streak Metrics */}
-                    <div className="bg-slate-50 border-3 border-black p-6 space-y-4 shadow-[4px_4px_0px_0px_black]">
-                        <div className="flex justify-between items-center border-b-2 border-slate-300 pb-3">
-                            <span className="font-bold text-slate-600">Max Streak (All-Time):</span>
-                            <span className="font-black text-sm md:text-base text-amber-600">
-                                {cfStats.maxStreakAllTime} days in a row max
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center border-b-2 border-slate-300 pb-3">
-                            <span className="font-bold text-slate-600">Max Streak (Last Year):</span>
-                            <span className="font-black text-sm md:text-base text-slate-800">
-                                {cfStats.maxStreakLastYear} days in a row for the last year
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-slate-600">Max Streak (Last Month):</span>
-                            <span className="font-black text-sm md:text-base text-slate-800">
-                                {cfStats.maxStreakLastMonth} days in a row for the last month
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* 3. GitHub-Style 365-Day Contribution Heatmap Grid */}
-            <div className="bg-[#0d1117] border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] neo-brutal text-white rounded-lg">
-                
-                {/* Top Header Row */}
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-[#e6edf3]">
-                        {totalYearContributions} contributions in {selectedYear}
-                    </h3>
-
-                    {/* Interactive Year Selector Dropdown */}
-                    <div className="dropdown dropdown-end">
-                        <div 
-                            tabIndex={0} 
-                            role="button" 
-                            className="text-xs text-[#c9d1d9] font-semibold hover:text-[#58a6ff] cursor-pointer flex items-center gap-2 bg-[#161b22] px-3 py-1.5 rounded-md border border-[#30363d] shadow-sm transition-all"
-                        >
-                            <span>Year: <strong className="text-emerald-400 font-bold">{selectedYear}</strong></span>
-                            <ChevronDown size={14} className="text-[#8b949e]" />
-                        </div>
-                        <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-2xl bg-[#161b22] rounded-md w-32 border border-[#30363d] mt-1 text-xs">
-                            <li>
-                                <button 
-                                    onClick={() => setSelectedYear(2026)} 
-                                    className={`py-2 px-3 font-semibold rounded ${selectedYear === 2026 ? "bg-[#1f6feb] text-white" : "text-[#c9d1d9] hover:bg-[#21262d]"}`}
-                                >
-                                    2026
-                                </button>
-                            </li>
-                            <li>
-                                <button 
-                                    onClick={() => setSelectedYear(2025)} 
-                                    className={`py-2 px-3 font-semibold rounded ${selectedYear === 2025 ? "bg-[#1f6feb] text-white" : "text-[#c9d1d9] hover:bg-[#21262d]"}`}
-                                >
-                                    2025
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Main Dark Inner Heatmap Card */}
-                <div className="bg-[#0d1117] border border-[#30363d] rounded-md p-5 overflow-x-auto">
-                    
-                    {/* Month Labels Bar */}
-                    <div className="flex text-[11px] text-[#8b949e] font-normal mb-2 pl-9 justify-between pr-2 min-w-[720px]">
-                        {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, idx) => (
-                            <span key={idx} className="text-center">{m}</span>
-                        ))}
-                    </div>
-
-                    {/* Heatmap Grid Row with Day Labels */}
-                    <div className="flex gap-2 min-w-[720px]">
-                        
-                        {/* Day Labels Column (Mon, Wed, Fri) */}
-                        <div className="flex flex-col justify-between text-[10px] text-[#8b949e] font-normal py-0.5 space-y-1 select-none pr-1">
-                            <span className="h-3 leading-3"></span>
-                            <span className="h-3 leading-3">Mon</span>
-                            <span className="h-3 leading-3"></span>
-                            <span className="h-3 leading-3">Wed</span>
-                            <span className="h-3 leading-3"></span>
-                            <span className="h-3 leading-3">Fri</span>
-                            <span className="h-3 leading-3"></span>
-                        </div>
-
-                        {/* 52 Weeks Matrix (7 squares per column) */}
-                        <div className="inline-grid grid-rows-7 grid-flow-col gap-[3px] flex-1">
-                            {displayHeatmap.map((day, idx) => (
-                                <div
-                                    key={idx}
-                                    title={`${day.count} contributions on ${day.date}`}
-                                    className={`w-3 h-3 rounded-[2px] transition-transform hover:scale-125 cursor-pointer ${
-                                        day.level === 0 ? "bg-[#161b22] border border-[#1b1f24]" :
-                                        day.level === 1 ? "bg-[#0e4429] border border-[#0e4429]" :
-                                        day.level === 2 ? "bg-[#006d32] border border-[#006d32]" :
-                                        day.level === 3 ? "bg-[#26a641] border border-[#26a641]" :
-                                        "bg-[#39d353] border border-[#39d353]"
-                                    }`}
-                                ></div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Footer Row inside Container */}
-                    <div className="flex justify-between items-center text-[11px] text-[#8b949e] mt-4 pt-3 border-t border-[#21262d]">
-                        <a href="#" onClick={(e) => e.preventDefault()} className="hover:text-[#58a6ff] transition-colors">
-                            Learn how we count contributions
-                        </a>
-                        
-                        <div className="flex items-center gap-1 text-[11px]">
-                            <span>Less</span>
-                            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#161b22] border border-[#1b1f24]" title="0 contributions"></div>
-                            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#0e4429]" title="Low activity"></div>
-                            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#006d32]" title="Medium activity"></div>
-                            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#26a641]" title="High activity"></div>
-                            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#39d353]" title="Very high activity"></div>
-                            <span>More</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* 4. Contest Performance & Rating History Graph */}
-            <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] neo-brutal space-y-6">
-                <div className="flex items-center justify-between border-b-4 border-black pb-4">
-                    <h2 className="text-2xl font-black uppercase text-black tracking-tight font-spartan">
-                        Contest Rating History
-                    </h2>
-                    <span className="bg-sky-400 text-black text-xs font-black px-3 py-1 uppercase tracking-widest border-2 border-black shadow-[2px_2px_0px_0px_black]">
-                        Official Timeline
-                    </span>
-                </div>
-
-                {ratingHistory && ratingHistory.length > 0 ? (
-                    <div className="space-y-6">
-                        <div className="h-64 w-full border-2 border-black p-4 bg-slate-50">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={ratingHistory}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                    <XAxis dataKey="contestName" stroke="#000000" fontSize={12} tickLine={false} />
-                                    <YAxis stroke="#000000" fontSize={12} domain={['dataMin - 100', 'dataMax + 100']} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: '2px', fontWeight: 'bold' }} />
-                                    <Line type="monotone" dataKey="newRating" stroke="#0284c7" strokeWidth={3} dot={{ r: 6, fill: '#0284c7', stroke: '#000000', strokeWidth: 2 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-
-                        {/* Contest History Table */}
-                        <div className="overflow-x-auto border-3 border-black">
-                            <table className="w-full text-left border-collapse text-black">
-                                <thead className="bg-slate-100 border-b-3 border-black font-black uppercase text-xs">
-                                    <tr>
-                                        <th className="p-4 border-r-2 border-black">Contest</th>
-                                        <th className="p-4 border-r-2 border-black">Rank</th>
-                                        <th className="p-4 border-r-2 border-black">Rating Delta</th>
-                                        <th className="p-4">New Rating</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y-2 divide-black font-bold text-sm">
-                                    {ratingHistory.map((item, idx) => (
-                                        <tr key={idx} className="hover:bg-amber-50">
-                                            <td className="p-4 border-r-2 border-black font-black">{item.contestName}</td>
-                                            <td className="p-4 border-r-2 border-black">{item.rank ? `#${item.rank}` : "N/A"}</td>
-                                            <td className={`p-4 border-r-2 border-black font-black ${
-                                                item.ratingChange?.startsWith('+') ? 'text-emerald-600' : 'text-red-600'
-                                            }`}>
-                                                {item.ratingChange}
-                                            </td>
-                                            <td className="p-4 font-black">{item.newRating}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-12 text-center bg-slate-50 border-2 border-dashed border-slate-400 text-slate-500 font-bold uppercase tracking-wider text-sm">
-                        No official contests participated in yet. Join upcoming contests to earn official ELO rating badges!
-                    </div>
-                )}
-            </div>
-
         </div>
     );
 };

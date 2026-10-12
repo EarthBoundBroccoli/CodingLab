@@ -1,3 +1,4 @@
+import { getUserLeaderboardStats, getUserCampusRank } from "../utils/leaderboard.js";
 import { User } from "../models/User.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { University } from "../models/University.js";
@@ -40,7 +41,7 @@ export const getUserSettings = async (req, res) => {
                     website: ""
                 }
             },
-            stats: stats || {},
+            stats: { ...stats, contestRating: rating, maxRating },
             universities
         });
     } catch (error) {
@@ -154,28 +155,8 @@ export const getPublicUserProfile = async (req, res) => {
             return res.status(404).json({ message: "User not found." });
         }
 
-        const targetUserIdStr = (user._id || user.id).toString();
-        const stats = await StudentStats.findOne({ userId: targetUserIdStr }).lean();
-
-        let campusRank = null;
-        if (user.university) {
-            const userRating = stats ? stats.contestRating : 1200;
-            const higherRanked = await User.aggregate([
-                { $match: { university: user.university._id } },
-                { $addFields: { userIdStr: { $toString: "$_id" } } },
-                { $lookup: {
-                    from: "student_stats",
-                    localField: "userIdStr",
-                    foreignField: "userId",
-                    as: "stats"
-                }},
-                { $unwind: { path: "$stats", preserveNullAndEmptyArrays: true } },
-                { $addFields: { contestRating: { $ifNull: ["$stats.contestRating", 1200] } } },
-                { $match: { contestRating: { $gt: userRating } } },
-                { $count: "count" }
-            ]);
-            campusRank = (higherRanked.length > 0 ? higherRanked[0].count : 0) + 1;
-        }
+        const { stats, rating, maxRating } = await getUserLeaderboardStats(user);
+        const campusRank = await getUserCampusRank(user, rating);
 
         return res.status(200).json({
             user: {
@@ -189,7 +170,7 @@ export const getPublicUserProfile = async (req, res) => {
                 university: user.university || null,
                 socials: user.socials || {}
             },
-            stats: stats || {},
+            stats: { ...stats, contestRating: rating, maxRating },
             campusRank
         });
     } catch (error) {

@@ -2,36 +2,28 @@ import { SetterRequest } from "../models/SetterRequest.js";
 import { User } from "../models/User.js";
 import { Notification } from "../models/Notification.js";
 import { Problem } from "../models/Problem.js";
-import { auth } from "../lib/auth.js";
+import mongoose from "mongoose";
+import { userIdentityFilter } from "../utils/accountAccess.js";
+
+const ADMIN_USER_FIELDS = '_id id name email role institution banned banReason disabledAt createdAt';
+
+// All moderation statuses and test files are accessible only through the admin router.
+export const getProblemRequests = async (req, res) => {
+    try {
+        const problems = await Problem.find({}).sort({ createdAt: -1 });
+        res.set("Cache-Control", "no-store");
+        return res.json(problems);
+    } catch (error) {
+        console.error("Error fetching problem requests:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
 
 // @desc    Get all pending setter requests
 // @route   GET /api/admin/setter-requests
 // @access  Protected (Admin Only)
 export const getPendingSetterRequests = async (req, res) => {
     try {
-        const adminToken = req.headers['x-admin-token'];
-        const isBypass = adminToken === 'admin123';
-
-        if (!isBypass) {
-            const session = await auth.api.getSession({
-                headers: req.headers
-            });
-
-            if (!session) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-
-            // Auto-upgrade admin@example.com to role 'admin' in database if not already done
-            if (session.user.email === 'admin@example.com' && session.user.role !== 'admin') {
-                await User.updateOne({ email: 'admin@example.com' }, { $set: { role: 'admin' } });
-                session.user.role = 'admin';
-            }
-
-            if (session.user.role !== 'admin') {
-                return res.status(403).json({ message: "Forbidden: Admin access only" });
-            }
-        }
-
         // Fetch all pending requests and populate the requester's name & email
         const requests = await SetterRequest.find({ status: 'pending' })
             .populate('userId', 'name email')
@@ -49,94 +41,66 @@ export const getPendingSetterRequests = async (req, res) => {
 // @access  Protected (Admin Only)
 export const decideSetterRequest = async (req, res) => {
     try {
-        const adminToken = req.headers['x-admin-token'];
-        const isBypass = adminToken === 'admin123';
-
-        if (!isBypass) {
-            const session = await auth.api.getSession({
-                headers: req.headers
-            });
-
-            if (!session) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-
-            // Auto-upgrade admin@example.com to role 'admin' in database if not already done
-            if (session.user.email === 'admin@example.com' && session.user.role !== 'admin') {
-                await User.updateOne({ email: 'admin@example.com' }, { $set: { role: 'admin' } });
-                session.user.role = 'admin';
-            }
-
-            if (session.user.role !== 'admin') {
-                return res.status(403).json({ message: "Forbidden: Admin access only" });
-            }
-        }
-
         const { id } = req.params;
-        const { status, reason } = req.body; // status should be 'accepted' or 'rejected'
-
-        if (!status || !['accepted', 'rejected'].includes(status)) {
+        const { status, reason } = req.body || {};
+        if (!['accepted', 'rejected'].includes(status)) {
             return res.status(400).json({ message: "Invalid status decision. Must be 'accepted' or 'rejected'." });
         }
-
-        const request = await SetterRequest.findById(id);
-        if (!request) {
+        if (!mongoose.isObjectIdOrHexString(id)) {
             return res.status(404).json({ message: "Setter request not found" });
         }
-
-        if (request.status !== 'pending') {
-            return res.status(400).json({ message: `Request has already been decided: current status is ${request.status}` });
+        if (reason !== undefined && (typeof reason !== 'string' || reason.length > 2000)) {
+            return res.status(400).json({ message: "Rejection reason must be text up to 2000 characters." });
         }
 
-        if (status === 'accepted') {
-            // Update request status
-            request.status = 'accepted';
-            await request.save();
-
-            // Update user role to 'problem_setter'
-            await User.updateOne(
-                { _id: request.userId },
-                { $set: { role: 'problem_setter' } }
+        const request = await SetterRequest.db.transaction(async session => {
+            // A conditional write prevents concurrent admins from deciding twice.
+            const decided = await SetterRequest.findOneAndUpdate(
+                { _id: id, status: 'pending' }, { $set: { status } }, { new: true, session }
             );
+            if (!decided) {
+                const existing = await SetterRequest.findById(id).session(session);
+                const error = new Error(existing ? 'This request has already been decided. Refresh the list.' : 'Setter request not found');
+                error.statusCode = existing ? 409 : 404;
+                throw error;
+            }
 
-            // Generate approval Notification
-            const notification = new Notification({
-                userId: request.userId,
-                title: "Setter Request Approved! 🎉",
-                message: "Congratulations! Your request to become a Problem Setter has been approved. You can now access the Problem Studio to create problems.",
-                type: "role_change",
-                isRead: false
-            });
-            await notification.save();
+            const user = await User.findOne(userIdentityFilter(decided.userId)).session(session);
+            if (!user) {
+                const error = new Error('The applicant account no longer exists. No decision was saved.');
+                error.statusCode = 409;
+                throw error;
+            }
+            if (status === 'accepted' && (user.role !== 'student' || user.banned || user.disabledAt)) {
+                const error = new Error('Only an active student account can be approved. No decision was saved.');
+                error.statusCode = 409;
+                throw error;
+            }
+            if (status === 'accepted') {
+                user.role = 'problem_setter';
+                await user.save({ session });
+            }
 
-            return res.json({
-                message: "Request approved and role updated successfully.",
-                request
-            });
-        } else {
-            // status === 'rejected'
-            request.status = 'rejected';
-            await request.save();
+            await new Notification({
+                userId: decided.userId,
+                title: status === 'accepted' ? 'Setter Request Approved!' : 'Setter Request Rejected',
+                message: status === 'accepted'
+                    ? 'Congratulations! Your request to become a Problem Setter has been approved. You can now access the Problem Studio to create problems.'
+                    : 'Your application to become a Problem Setter was rejected.',
+                note: status === 'rejected' ? reason?.trim() || 'No reason specified.' : '',
+                type: 'role_change', isRead: false,
+            }).save({ session });
+            return decided;
+        });
 
-            // Generate rejection Notification
-            const notification = new Notification({
-                userId: request.userId,
-                title: "Setter Request Rejected ❌",
-                message: "Your application to become a Problem Setter was rejected.",
-                note: reason || "No reason specified.",
-                type: "role_change",
-                isRead: false
-            });
-            await notification.save();
-
-            return res.json({
-                message: "Request rejected successfully.",
-                request
-            });
-        }
+        return res.json({
+            message: status === 'accepted' ? 'Request approved and role updated successfully.' : 'Request rejected successfully.',
+            request,
+        });
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
         console.error('Error deciding setter request:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        return res.status(500).json({ message: 'Could not save the decision and notification together. Please refresh and try again.' });
     }
 };
 
@@ -145,23 +109,6 @@ export const decideSetterRequest = async (req, res) => {
 // @access  Protected (Admin Only)
 export const getDashboardSummary = async (req, res) => {
     try {
-        const adminToken = req.headers['x-admin-token'];
-        const isBypass = adminToken === 'admin123';
-
-        if (!isBypass) {
-            const session = await auth.api.getSession({
-                headers: req.headers
-            });
-
-            if (!session) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-
-            if (session.user.role !== 'admin' && session.user.email !== 'admin@example.com') {
-                return res.status(403).json({ message: "Forbidden: Admin access only" });
-            }
-        }
-
         const totalUsers = await User.countDocuments({});
         const totalProblems = await Problem.countDocuments({ status: "approved" });
         const pendingProblems = await Problem.countDocuments({ status: "pending" });
@@ -213,23 +160,6 @@ export const getDashboardSummary = async (req, res) => {
 // @access  Protected (Admin Only)
 export const updateProblemStatus = async (req, res) => {
     try {
-        const adminToken = req.headers['x-admin-token'];
-        const isBypass = adminToken === 'admin123';
-
-        if (!isBypass) {
-            const session = await auth.api.getSession({
-                headers: req.headers
-            });
-
-            if (!session) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-
-            if (session.user.role !== 'admin' && session.user.email !== 'admin@example.com') {
-                return res.status(403).json({ message: "Forbidden: Admin access only" });
-            }
-        }
-
         const { id } = req.params;
         const { status } = req.body; // 'approved' or 'rejected'
 
@@ -260,27 +190,52 @@ export const updateProblemStatus = async (req, res) => {
 // @access  Protected (Admin Only)
 export const getAllUsers = async (req, res) => {
     try {
-        const adminToken = req.headers['x-admin-token'];
-        const isBypass = adminToken === 'admin123';
-
-        if (!isBypass) {
-            const session = await auth.api.getSession({
-                headers: req.headers
-            });
-
-            if (!session) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-
-            if (session.user.role !== 'admin' && session.user.email !== 'admin@example.com') {
-                return res.status(403).json({ message: "Forbidden: Admin access only" });
-            }
-        }
-
-        const users = await User.find({}).sort({ createdAt: -1 });
+        const users = await User.find({}).select(ADMIN_USER_FIELDS).sort({ createdAt: -1 });
+        res.set("Cache-Control", "no-store");
         res.json(users);
     } catch (error) {
         console.error('Error fetching all users:', error);
         res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const updateUserAccess = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { action, reason } = req.body || {};
+        if (!['ban', 'unban', 'disable', 'restore'].includes(action)) {
+            return res.status(400).json({ message: 'Invalid account action.' });
+        }
+        if (action === 'ban' && (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 1000)) {
+            return res.status(400).json({ message: 'Provide a ban reason between 1 and 1000 characters.' });
+        }
+        const user = await User.findOne(userIdentityFilter(id));
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+        if (user.role === 'admin' || [user.id, String(user._id)].includes(req.user.id)) {
+            return res.status(403).json({ message: 'Administrator accounts cannot be moderated here.' });
+        }
+        if (user.disabledAt && ['ban', 'unban'].includes(action)) {
+            return res.status(409).json({ message: 'Restore this disabled account before changing its ban status.' });
+        }
+        const changes = action === 'ban' ? { banned: true, banReason: reason.trim() }
+            : action === 'unban' ? { banned: false, banReason: '' }
+            : action === 'disable' ? { disabledAt: user.disabledAt || new Date() }
+            : { disabledAt: null }; // Restoring does not override an existing ban.
+        const updated = await User.findOneAndUpdate(
+            { _id: user._id, role: { $ne: 'admin' },
+                ...(['ban', 'unban'].includes(action) ? { disabledAt: null } : {}) },
+            { $set: changes }, { new: true, projection: ADMIN_USER_FIELDS }
+        );
+        if (!updated) return res.status(409).json({ message: 'Account changed. Refresh the user list and try again.' });
+        if (['ban', 'disable'].includes(action)) {
+            const ids = [...new Set([user.id, String(user._id)].filter(Boolean))];
+            const sessionIds = ids.flatMap(value => mongoose.isObjectIdOrHexString(value)
+                ? [value, new mongoose.Types.ObjectId(value)] : [value]);
+            await User.db.collection('session').deleteMany({ userId: { $in: sessionIds } });
+        }
+        return res.json({ user: updated, message: 'Account access updated.' });
+    } catch (error) {
+        console.error('Error updating account access:', error);
+        return res.status(500).json({ message: 'Could not complete the account update. Refresh to check its current status.' });
     }
 };

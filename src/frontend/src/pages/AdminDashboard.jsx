@@ -98,9 +98,6 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const response = await fetch(`${getBackendURL()}/api/admin/dashboard-summary`, {
-        headers: {
-          "x-admin-token": "admin123"
-        },
         credentials: "include"
       });
 
@@ -146,8 +143,7 @@ const AdminDashboard = () => {
       const response = await fetch(`${getBackendURL()}/api/admin/problems/${id}/status`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": "admin123"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify({ status: "approved" })
@@ -175,8 +171,7 @@ const AdminDashboard = () => {
       const response = await fetch(`${getBackendURL()}/api/admin/problems/${id}/status`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": "admin123"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify({ status: "rejected" })
@@ -202,9 +197,6 @@ const AdminDashboard = () => {
     try {
       const response = await fetch(`${getBackendURL()}/api/contests/${id}/end`, {
         method: "PUT",
-        headers: {
-          "x-admin-token": "admin123"
-        },
         credentials: "include"
       });
       if (response.ok) {

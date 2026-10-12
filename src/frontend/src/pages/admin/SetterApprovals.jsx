@@ -23,9 +23,6 @@ const SetterApprovals = () => {
     try {
       setLoading(true);
       const response = await fetch(`${getBackendURL()}/api/admin/setter-requests`, {
-        headers: {
-          "x-admin-token": "admin123"
-        },
         credentials: "include"
       });
       if (response.ok) {
@@ -52,8 +49,7 @@ const SetterApprovals = () => {
       const response = await fetch(`${getBackendURL()}/api/admin/setter-requests/${id}/decide`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": "admin123"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify({ status: "accepted" })
@@ -89,8 +85,7 @@ const SetterApprovals = () => {
       const response = await fetch(`${getBackendURL()}/api/admin/setter-requests/${rejectTarget._id}/decide`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": "admin123"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify({

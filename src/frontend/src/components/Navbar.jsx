@@ -2,33 +2,44 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useSession, signOut, getBackendURL } from "../lib/auth-client";
 import { Bell } from "lucide-react";
+import { fetchNotifications, NOTIFICATIONS_CHANGED } from "../lib/notifications";
 
 const Navbar = () => {
   const { data: session } = useSession();
   const location = useLocation();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const userId = session?.user?.id;
+  const [unreadState, setUnreadState] = useState({});
+  const unreadCount = unreadState.userId === userId ? unreadState.count : 0;
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) return;
+    let controller;
+    let disposed = false;
     const fetchUnreadCount = async () => {
+      controller?.abort();
+      const request = new AbortController();
+      controller = request;
       try {
-        const response = await fetch(`${getBackendURL()}/api/notifications`, {
-          credentials: "include"
-        });
-        if (response.ok) {
-          const data = await response.json();
+        const data = await fetchNotifications(getBackendURL(), request.signal);
+        if (!disposed && !request.signal.aborted) {
           const unread = data.filter(n => !n.isRead).length;
-          setUnreadCount(unread);
+          setUnreadState({ userId, count: unread });
         }
       } catch (err) {
-        console.error("Error fetching notifications count:", err);
+        if (!disposed && !request.signal.aborted) console.error("Error fetching notifications count:", err);
       }
     };
 
     fetchUnreadCount();
+    window.addEventListener(NOTIFICATIONS_CHANGED, fetchUnreadCount);
     const interval = setInterval(fetchUnreadCount, 15000);
-    return () => clearInterval(interval);
-  }, [session, location.pathname]);
+    return () => {
+      disposed = true;
+      controller?.abort();
+      clearInterval(interval);
+      window.removeEventListener(NOTIFICATIONS_CHANGED, fetchUnreadCount);
+    };
+  }, [userId, location.pathname]);
 
   // Navigation links based on session
   const navLinks = session ? [
@@ -102,7 +113,7 @@ const Navbar = () => {
                 )}
 
                 {/* Notification Bell */}
-                <Link to="/inbox" className="btn btn-ghost btn-circle border-2 border-black bg-white hover:bg-emerald-400 relative mr-2 flex items-center justify-center">
+                <Link to="/inbox" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`} className="btn btn-ghost btn-circle border-2 border-black bg-white hover:bg-emerald-400 relative mr-2 flex items-center justify-center">
                     <Bell size={20} className="text-black" strokeWidth={2.5} />
                     {unreadCount > 0 && (
                         <span className="absolute -top-1.5 -right-1.5 bg-emerald-400 text-black border-2 border-black text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-[1px_1px_0px_black]">

@@ -28,6 +28,8 @@ const contestSchema = new mongoose.Schema({
     enum: ['Upcoming', 'Ongoing', 'Ended'],
     default: 'Upcoming'
   },
+  ratingsCalculated: { type: Boolean, default: false },
+  ratingsCalculatedAt: Date,
   participants: [{
     userId: { 
       type: String, // Matches Better Auth string user ID
@@ -41,6 +43,9 @@ const contestSchema = new mongoose.Schema({
       type: Number, 
       default: 0 
     },
+    oldRating: Number,
+    newRating: Number,
+    ratingChange: String,
     solved: [{ 
       type: mongoose.Schema.Types.ObjectId, 
       ref: 'Problem' 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useSession, getBackendURL } from "../lib/auth-client";
-import { ArrowLeft, MapPin, Loader, User } from "lucide-react";
+import { ArrowLeft, MapPin, Loader } from "lucide-react";
 
 const CampusLeaderboard = () => {
     const { universityId } = useParams();
@@ -10,27 +10,37 @@ const CampusLeaderboard = () => {
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [page, setPage] = useState(1);
+    const [paging, setPaging] = useState({ universityId, page: 1 });
+    const page = paging.universityId === universityId ? paging.page : 1;
+    const setPage = update => setPaging(previous => ({
+        universityId, page: update(previous.universityId === universityId ? previous.page : 1)
+    }));
     const [totalPages, setTotalPages] = useState(1);
+    const [refresh, setRefresh] = useState(0);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchCampusData = async () => {
             setLoading(true);
+            setError("");
             try {
-                const res = await fetch(`${getBackendURL()}/api/leaderboard/university/${universityId}?page=${page}&limit=20`);
+                const res = await fetch(`${getBackendURL()}/api/leaderboard/university/${universityId}?page=${page}&limit=20`, { signal: controller.signal });
                 if (!res.ok) throw new Error("Failed to fetch campus leaderboard");
                 const data = await res.json();
+                if (controller.signal.aborted) return;
                 setUniversity(data.university);
                 setStudents(data.students);
                 setTotalPages(data.totalPages);
+                setPaging({ universityId, page: data.currentPage });
             } catch (err) {
-                setError(err.message);
+                if (!controller.signal.aborted) setError(err.message);
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
         fetchCampusData();
-    }, [universityId, page]);
+        return () => controller.abort();
+    }, [universityId, page, refresh]);
 
     return (
         <div className="container mx-auto p-4 md:p-8 max-w-5xl">
@@ -41,13 +51,14 @@ const CampusLeaderboard = () => {
                 </Link>
             </div>
 
-            {loading && !university ? (
+            {loading ? (
                 <div className="flex justify-center p-12">
                     <Loader className="animate-spin text-black" size={48} strokeWidth={3} />
                 </div>
             ) : error ? (
                 <div className="bg-red-400 p-4 border-4 border-black font-bold text-black mb-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                     {error}
+                    <button type="button" onClick={() => setRefresh(value => value + 1)} className="block underline mt-2">Try again</button>
                 </div>
             ) : (
                 <>
@@ -66,7 +77,7 @@ const CampusLeaderboard = () => {
                             </div>
                             <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                                 <div className="text-sm font-black uppercase text-slate-500">Campus Total</div>
-                                <div className="text-3xl md:text-5xl font-black font-spartan">{university?.totalRating.toLocaleString()}</div>
+                                <div className="text-3xl md:text-5xl font-black font-spartan">{(university?.totalRating ?? 0).toLocaleString()}</div>
                             </div>
                         </div>
                     </div>
@@ -85,10 +96,10 @@ const CampusLeaderboard = () => {
                                 </div>
                             )}
                             
-                            {students.map((student, index) => {
-                                const campusRank = (page - 1) * 20 + index + 1;
-                                const isMe = session?.user?.name === student.name || session?.user?.id === student._id?.toString();
-                                const rating = student.contestRating || 1200;
+                            {students.map((student) => {
+                                const campusRank = student.rank;
+                                const isMe = session?.user?.id === student.id || session?.user?.id === student._id?.toString();
+                                const rating = student.contestRating ?? 1000;
                                 
                                 const getRatingBadge = (r) => {
                                     if (r < 1200) return { title: "Novice", color: "bg-slate-200 text-black" };
@@ -103,7 +114,7 @@ const CampusLeaderboard = () => {
 
                                 return (
                                     <Link 
-                                        to={`/profile/${student._id}`}
+                                        to={`/profile/${student.id || student._id}`}
                                         key={student._id}
                                         className={`grid grid-cols-12 gap-4 p-4 border-b-2 border-black last:border-b-0 items-center transition-all hover:translate-x-1 cursor-pointer ${
                                             isMe ? "bg-emerald-100 hover:bg-emerald-200" : "hover:bg-slate-50"
@@ -140,7 +151,7 @@ const CampusLeaderboard = () => {
                     </div>
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
+                    {!loading && !error && totalPages > 1 && (
                         <div className="flex justify-center items-center gap-4 mt-8 font-bold text-xl">
                             <button 
                                 onClick={() => setPage(p => Math.max(1, p - 1))}

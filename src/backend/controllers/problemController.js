@@ -1,6 +1,8 @@
 import { Problem } from "../models/Problem.js";
 import { auth } from "../lib/auth.js";
 import { uploadTextFile } from "../lib/cloudinary.js";
+import mongoose from "mongoose";
+import { PUBLIC_PROBLEM_FIELDS } from "../utils/publicProblem.js";
 
 // @desc    Add a new coding problem
 // @route   POST /api/problem/add
@@ -86,7 +88,9 @@ export const addProblem = async (req, res) => {
 // @access  Public
 export const getApprovedProblems = async (req, res) => {
     try {
-        const problems = await Problem.find({}).sort({ createdAt: -1 });
+        const problems = await Problem.find({ status: "approved" })
+            .select(PUBLIC_PROBLEM_FIELDS)
+            .sort({ createdAt: -1 });
         res.json(problems);
     } catch (error) {
         console.error('Error fetching problems:', error);
@@ -100,7 +104,11 @@ export const getApprovedProblems = async (req, res) => {
 export const getProblemById = async (req, res) => {
     try {
         const { id } = req.params;
-        const problem = await Problem.findById(id);
+        if (!mongoose.isObjectIdOrHexString(id)) {
+            return res.status(404).json({ message: "Problem not found" });
+        }
+        const problem = await Problem.findOne({ _id: id, status: "approved" })
+            .select(PUBLIC_PROBLEM_FIELDS);
         if (!problem) {
             return res.status(404).json({ message: "Problem not found" });
         }
@@ -116,7 +124,7 @@ export const getProblemById = async (req, res) => {
 // @access  Public or Protected
 export const getDailyChallenge = async (req, res) => {
     try {
-        const totalProblems = await Problem.countDocuments();
+        const totalProblems = await Problem.countDocuments({ status: "approved" });
         if (totalProblems === 0) {
             return res.status(404).json({ message: "No problems found in database." });
         }
@@ -135,7 +143,13 @@ export const getDailyChallenge = async (req, res) => {
         const index = Math.abs(hash) % totalProblems;
         
         // Fetch the specific problem by skipping to that index
-        const dailyProblem = await Problem.findOne().skip(index);
+        const dailyProblem = await Problem.findOne({ status: "approved" })
+            .select(PUBLIC_PROBLEM_FIELDS)
+            .sort({ _id: 1 })
+            .skip(index);
+        if (!dailyProblem) {
+            return res.status(404).json({ message: "No approved challenge available." });
+        }
         
         res.json(dailyProblem);
     } catch (error) {

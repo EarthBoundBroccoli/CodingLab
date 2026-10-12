@@ -11,7 +11,7 @@ import {
     submitToContest,
     calculateContestRatingsForContest
 } from "../controllers/contestController.js";
-import { requireAdmin, requireStudent } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrSetter, requireStudent } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -25,7 +25,7 @@ router.post("/", requireAdmin, createContest);
 router.put("/:id", requireAdmin, updateContest);
 router.delete("/:id", requireAdmin, deleteContest);
 router.put("/:id/end", requireAdmin, endContest);
-router.post("/:id/calculate-ratings", calculateContestRatingsForContest);
+router.post("/:id/calculate-ratings", requireAdminOrSetter, calculateContestRatingsForContest);
 
 // Student-only routes
 router.post("/:id/register", requireStudent, registerForContest);

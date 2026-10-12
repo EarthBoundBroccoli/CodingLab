@@ -138,7 +138,7 @@ const AdminProblemRequests = () => {
   const fetchProblems = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${getBackendURL()}/api/problem`, {
+      const response = await fetch(`${getBackendURL()}/api/admin/problems`, {
         credentials: "include"
       });
       if (response.ok) {
@@ -263,8 +263,7 @@ const AdminProblemRequests = () => {
       const response = await fetch(`${getBackendURL()}/api/admin/problems/${id}/status`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": "admin123"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify({ status: newStatus })
