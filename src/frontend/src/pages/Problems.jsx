@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, Filter, ChevronLeft, ChevronRight, X, Loader2, AlertCircle } from "lucide-react";
 import { getBackendURL } from "../lib/auth-client";
+import { usePagination } from "../hooks/usePagination";
 
 const Problems = () => {
     // State for live problems
@@ -18,7 +19,6 @@ const Problems = () => {
     const [activeDifficulty, setActiveDifficulty] = useState(null);
     const [activeTags, setActiveTags] = useState([]); // Multiple tags
     const [sortOrder, setSortOrder] = useState(null); // 'asc' or 'desc'
-    const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 20;
 
     // Fetch approved problems and student stats from backend
@@ -72,18 +72,13 @@ const Problems = () => {
         return Array.from(tagSet).sort();
     }, [problems]);
 
-    // Reset pagination to page 1 whenever filters change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, activeDifficulty, activeTags, sortOrder]);
-
     // Filtered and Sorted Logic
     const filteredProblems = useMemo(() => {
         let result = problems.filter((prob) => {
             const matchesSearch = prob.title.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesDifficulty = !activeDifficulty || prob.difficulty.toLowerCase() === activeDifficulty.toLowerCase();
             // Must match ALL selected tags
-            const matchesTags = activeTags.length === 0 || activeTags.every(tag => prob.tags.includes(tag));
+            const matchesTags = activeTags.length === 0 || activeTags.every(tag => prob.tags?.includes(tag));
             return matchesSearch && matchesDifficulty && matchesTags;
         });
 
@@ -96,13 +91,17 @@ const Problems = () => {
         return result;
     }, [searchTerm, activeDifficulty, activeTags, sortOrder, problems]);
 
+    const totalPages = Math.ceil(filteredProblems.length / PAGE_SIZE) || 1;
+    const [currentPage, setCurrentPage] = usePagination(
+        JSON.stringify([searchTerm, activeDifficulty, activeTags, sortOrder]), totalPages
+    );
+
     // Paginated list
     const paginatedProblems = useMemo(() => {
         const startIndex = (currentPage - 1) * PAGE_SIZE;
         return filteredProblems.slice(startIndex, startIndex + PAGE_SIZE);
     }, [filteredProblems, currentPage]);
 
-    const totalPages = Math.ceil(filteredProblems.length / PAGE_SIZE) || 1;
 
     const toggleTag = (tag) => {
         setActiveTags(prev => 
@@ -120,7 +119,7 @@ const Problems = () => {
         const indexText = `#${(currentPage - 1) * PAGE_SIZE + idx + 1}`;
         if (!studentStats) {
             return (
-                <div className="bg-white border-r-2 border-black text-rose-200 group-hover:text-black transition-colors flex items-center justify-center text-lg font-bold w-16 shrink-0 self-stretch">
+                <div className="bg-sky-200 bg-linear-to-br from-sky-100 to-sky-300 border-r-2 border-black text-sky-950 group-hover:from-sky-200 group-hover:to-sky-400 transition-colors flex items-center justify-center text-xl font-black tabular-nums w-16 shrink-0 self-stretch">
                     {indexText}
                 </div>
             );
@@ -150,7 +149,7 @@ const Problems = () => {
         }
 
         return (
-            <div className="bg-white border-r-2 border-black text-rose-200 group-hover:text-black transition-colors flex items-center justify-center text-lg font-bold w-16 shrink-0 self-stretch">
+            <div className="bg-sky-200 bg-linear-to-br from-sky-100 to-sky-300 border-r-2 border-black text-sky-950 group-hover:from-sky-200 group-hover:to-sky-400 transition-colors flex items-center justify-center text-xl font-black tabular-nums w-16 shrink-0 self-stretch">
                 {indexText}
             </div>
         );
@@ -165,6 +164,7 @@ const Problems = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                         <input
                             type="text"
+                            aria-label="Search problems"
                             placeholder="Search for problems..."
                             className="w-full pl-12 pr-4 py-3 border-4 border-black font-black focus:bg-slate-50 transition-colors outline-none rounded-none uppercase text-sm"
                             value={searchTerm}
@@ -174,10 +174,26 @@ const Problems = () => {
                     <button 
                         className={`btn rounded-none border-4 border-black p-3 transition-all shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none ${showFilters ? 'bg-black text-white hover:bg-black' : 'bg-white text-black hover:bg-emerald-400'} cursor-pointer`}
                         onClick={() => setShowFilters(!showFilters)}
+                        aria-label="Toggle problem filters"
+                        aria-expanded={showFilters}
                     >
                         {showFilters ? <X size={24} /> : <Filter size={24} />}
                     </button>
                 </div>
+
+                {availableTags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-4" role="group" aria-label="Filter by topic">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 mr-1">Topics</span>
+                        <button onClick={() => setActiveTags([])} aria-pressed={activeTags.length === 0} className={`px-3 py-2 border-2 border-black text-xs font-bold cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${activeTags.length === 0 ? 'bg-black text-white' : 'bg-white text-black hover:bg-sky-100'}`}>All topics</button>
+                        {availableTags.slice(0, 8).concat(activeTags.filter(tag => !availableTags.slice(0, 8).includes(tag))).map(tag => (
+                            <button key={tag} onClick={() => toggleTag(tag)} aria-pressed={activeTags.includes(tag)} className={`inline-flex items-center gap-2 px-3 py-2 border-2 border-black text-xs font-bold cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${activeTags.includes(tag) ? 'bg-sky-300 text-sky-950 shadow-[2px_2px_0_0_black]' : 'bg-white text-slate-700 hover:bg-sky-100'}`}>
+                                {tag}{activeTags.includes(tag) && <X size={12} aria-hidden="true" />}
+                            </button>
+                        ))}
+                        {availableTags.length > 8 && <button onClick={() => setShowFilters(true)} className="px-3 py-2 text-xs font-bold underline underline-offset-4 cursor-pointer text-sky-800">More topics</button>}
+                        {activeTags.length > 1 && <span className="text-xs text-slate-500 font-medium">Matching all selected topics</span>}
+                    </div>
+                )}
 
                 {/* Floating Filter Box */}
                 {showFilters && (
@@ -263,10 +279,10 @@ const Problems = () => {
                         {paginatedProblems.map((prob, idx) => (
                             <Link key={prob._id} to={`/problems/${prob._id}`} className="flex flex-row hover:bg-sky-100 transition-colors cursor-pointer group border-b-4 border-black last:border-b-0">
                                 {renderIndex(prob, idx)}
-                                <div className="flex-1 flex flex-col md:flex-row">
+                                <div className="min-w-0 flex-1 flex flex-col md:flex-row">
                                     {/* Left Side: Title, Tags */}
-                                    <div className="flex-1 p-6 space-y-2">
-                                        <h3 className="text-2xl font-black uppercase italic group-hover:text-black transition-colors text-black">{prob.title}</h3>
+                                    <div className="min-w-0 flex-1 p-4 sm:p-6 space-y-2">
+                                        <h3 className="text-xl sm:text-2xl font-black uppercase italic break-words group-hover:text-black transition-colors text-black">{prob.title}</h3>
                                         <div className="flex flex-wrap gap-2">
                                             {prob.tags?.map(tag => (
                                                 <span key={tag} className="px-3 py-1 border-2 border-black font-black text-xs uppercase bg-white text-black">{tag}</span>
@@ -275,8 +291,8 @@ const Problems = () => {
                                     </div>
 
                                     {/* Right Side: Difficulty */}
-                                    <div className="w-full md:w-64 border-t-4 md:border-t-0 md:border-l-4 border-black flex items-center justify-center p-6 bg-white/50">
-                                        <span className={`text-xl font-black uppercase italic ${
+                                    <div className="w-full md:w-40 shrink-0 border-t-4 md:border-t-0 md:border-l-4 border-black flex items-center justify-center p-4 bg-white/50">
+                                        <span className={`font-black text-xl bg-white border-2 border-black px-2 shadow-[2px_2px_0px_0px_black] uppercase italic ${
                                             prob.difficulty.toLowerCase() === 'easy' ? 'text-emerald-500' : 
                                             prob.difficulty.toLowerCase() === 'medium' || prob.difficulty.toLowerCase() === 'normal' ? 'text-amber-500' : 'text-red-500'
                                         }`}>

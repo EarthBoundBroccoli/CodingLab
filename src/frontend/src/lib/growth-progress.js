@@ -1,5 +1,25 @@
 const DAY_MS = 86400000;
 
+export function buildPracticeSeries(stats, days, now = new Date()) {
+  const today = Date.parse(now.toISOString().slice(0, 10));
+  const start = today - (days - 1) * DAY_MS;
+  const firstDates = new Map();
+  for (const solve of stats.firstSolveHistory || []) {
+    const timestamp = Date.parse(solve.date);
+    if (!solve.problemId || !Number.isFinite(timestamp) || timestamp > today) continue;
+    const id = String(solve.problemId);
+    if (!firstDates.has(id) || timestamp < firstDates.get(id)) firstDates.set(id, timestamp);
+  }
+  const counts = new Map();
+  for (const timestamp of firstDates.values()) {
+    if (timestamp >= start) counts.set(timestamp, (counts.get(timestamp) || 0) + 1);
+  }
+  return Array.from({ length: days }, (_, index) => {
+    const timestamp = start + index * DAY_MS;
+    return { date: new Date(timestamp).toISOString().slice(0, 10), solved: counts.get(timestamp) || 0 };
+  });
+}
+
 export function buildPracticeProgress(stats, days, now = new Date()) {
   const today = Date.parse(now.toISOString().slice(0, 10));
   const start = today - (days - 1) * DAY_MS;

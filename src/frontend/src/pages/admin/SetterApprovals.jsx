@@ -2,6 +2,14 @@ import { useState, useEffect } from "react";
 import { getBackendURL } from "../../lib/auth-client";
 import { Check, X, AlertCircle, Loader2 } from "lucide-react";
 
+const loadPendingRequests = async () => {
+  const response = await fetch(`${getBackendURL()}/api/admin/setter-requests`, { credentials: "include" });
+  if (!response.ok) throw new Error("Could not load pending requests. Please try again.");
+  const data = await response.json();
+  if (!Array.isArray(data)) throw new Error("Could not load pending requests. Please try again.");
+  return data;
+};
+
 const SetterApprovals = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,25 +27,10 @@ const SetterApprovals = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchRequests = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${getBackendURL()}/api/admin/setter-requests`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRequests(data);
-      } else {
-        setError("Failed to fetch pending requests");
-      }
-    } catch (err) {
-      console.error("Error fetching setter requests:", err);
-      setError("Failed to connect to backend server");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchRequests = () => loadPendingRequests()
+    .then(data => setRequests(data))
+    .catch(() => setError("Could not load pending requests. Please try again."))
+    .finally(() => setLoading(false));
 
   useEffect(() => {
     fetchRequests();
@@ -140,6 +133,7 @@ const SetterApprovals = () => {
           <div className="p-8 text-center text-error font-black uppercase flex flex-col items-center justify-center gap-2">
             <AlertCircle size={40} />
             {error}
+            <button onClick={() => { setError(""); setLoading(true); fetchRequests(); }} className="btn btn-sm rounded-none border-2 border-black bg-white text-black">Retry</button>
           </div>
         ) : requests.length === 0 ? (
           <div className="p-12 text-center text-slate-500 font-black uppercase text-sm">
@@ -158,6 +152,7 @@ const SetterApprovals = () => {
                         {reqItem.userId?.name || "Unknown User"}
                       </h3>
                       <p className="text-xs font-bold text-slate-600 truncate">{reqItem.userId?.email || "No email"}</p>
+                      {reqItem.accountMissing && <p className="text-xs font-bold text-red-700">This applicant account is unavailable. This request cannot be decided.</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 border-t-2 border-dashed border-black pt-3">
@@ -199,14 +194,14 @@ const SetterApprovals = () => {
                     <div className="flex flex-wrap gap-4 justify-end pt-4 border-t-2 border-dashed border-slate-200">
                       <button
                         onClick={() => handleRejectClick(reqItem)}
-                        disabled={submittingApproveId !== null}
+                        disabled={submittingApproveId !== null || submittingReject || reqItem.accountMissing}
                         className="px-6 py-2.5 border-4 border-black bg-rose-400 text-black font-black uppercase text-sm hover:bg-rose-500 active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-[4px_4px_0px_0px_black] active:shadow-none flex items-center gap-2 cursor-pointer"
                       >
                         <X size={16} strokeWidth={3} /> Reject Request
                       </button>
                       <button
                         onClick={() => handleApprove(reqItem._id)}
-                        disabled={submittingApproveId !== null}
+                        disabled={submittingApproveId !== null || submittingReject || reqItem.accountMissing}
                         className="px-6 py-2.5 border-4 border-black bg-emerald-400 text-black font-black uppercase text-sm hover:bg-emerald-500 active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-[4px_4px_0px_0px_black] active:shadow-none flex items-center gap-2 cursor-pointer"
                       >
                         {submittingApproveId === reqItem._id ? (

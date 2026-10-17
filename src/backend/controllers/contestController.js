@@ -7,8 +7,12 @@ import { Submission } from "../models/Submission.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
 import { processRatingsForContest } from "../utils/contestRatings.js";
+import { rankContestParticipants } from "../utils/contestStandings.js";
+import { userIdentityFilter } from "../utils/userIdentity.js";
 import { PUBLIC_PROBLEM_FIELDS } from "../utils/publicProblem.js";
 import { validateContestSchedule } from "../utils/contestSchedule.js";
+import { withSubmissionTransaction } from "../utils/submissionPersistence.js";
+import { wrapCpp, wrapPython, wrapJava, createRuntimeMarker, readRuntimeFailure, readCompilationFailure } from "../utils/judgingRuntime.js";
 
 const validateContestProblems = async problems => {
     if (!Array.isArray(problems) || problems.length === 0) {
@@ -65,9 +69,7 @@ const populateContestUsers = async (contestDoc) => {
     // Safely populate createdBy
     if (contestObj.createdBy && typeof contestObj.createdBy === 'string') {
         try {
-            const user = await User.findOne({
-                $or: [{ _id: contestObj.createdBy }, { id: contestObj.createdBy }]
-            }).select("name email");
+            const user = await User.findOne(userIdentityFilter(contestObj.createdBy)).select("name id");
             if (user) {
                 contestObj.createdBy = user;
             }
@@ -82,9 +84,7 @@ const populateContestUsers = async (contestDoc) => {
             contestObj.participants.map(async (p) => {
                 if (p && p.userId && typeof p.userId === 'string') {
                     try {
-                        const user = await User.findOne({
-                            $or: [{ _id: p.userId }, { id: p.userId }]
-                        }).select("name email");
+                        const user = await User.findOne(userIdentityFilter(p.userId)).select("name id");
                         if (user) {
                             p.userId = user;
                         }
@@ -116,153 +116,6 @@ const fetchIfNeeded = async (urlOrContent) => {
 };
 
 // C++ code wrapper
-const wrapCpp = (studentCode) => {
-  const usesArgc = /\bmain\s*\(\s*int\b/.test(studentCode);
-  const dummyDefinition = usesArgc 
-    ? "int user_main() { return 0; }" 
-    : "int user_main(int argc, char** argv) { return 0; }";
-
-  return `
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <vector>
-
-// Dummy for the signature NOT used by the student
-${dummyDefinition}
-
-#define main user_main
-${studentCode}
-#undef main
-
-int main() {
-    std::string all_input;
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        all_input += line + "\\n";
-    }
-    
-    std::vector<std::string> inputs;
-    std::string delimiter = "///";
-    size_t pos = 0;
-    while ((pos = all_input.find(delimiter)) != std::string::npos) {
-        inputs.push_back(all_input.substr(0, pos));
-        all_input.erase(0, pos + delimiter.length());
-    }
-    inputs.push_back(all_input);
-    
-    std::streambuf* orig_cin = std::cin.rdbuf();
-    
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        if (i > 0) {
-            std::cout << "///\\n";
-        }
-        
-        std::istringstream iss(inputs[i]);
-        std::cin.rdbuf(iss.rdbuf());
-        
-        // Execute student code
-        user_main();
-        user_main(0, nullptr);
-        
-        std::cin.clear();
-    }
-    
-    std::cin.rdbuf(orig_cin);
-    return 0;
-}
-`;
-};
-
-// Python code wrapper
-const wrapPython = (studentCode) => {
-  return `
-import sys
-import io
-
-student_raw_code = ${JSON.stringify(studentCode)}
-
-# Intercept the massive batched stream string
-full_input = sys.stdin.read()
-test_cases = full_input.split('///')
-
-original_stdout = sys.stdout
-original_stdin = sys.stdin
-
-for i, case in enumerate(test_cases):
-    if i > 0:
-        original_stdout.write('///\\n')
-        original_stdout.flush()
-    
-    # Reset virtual streams for this specific test block
-    sys.stdin = io.StringIO(case.strip())
-    captured_output = io.StringIO()
-    sys.stdout = captured_output
-    
-    try:
-        # Run code globally with __name__ properly initialized to "__main__"
-        exec(student_raw_code, {"__name__": "__main__", "__builtins__": __builtins__})
-    except SystemExit:
-        pass
-    except Exception as e:
-        captured_output.write(str(e) + '\\n')
-        
-    sys.stdout = original_stdout
-    original_stdout.write(captured_output.getvalue())
-    original_stdout.flush()
-`;
-};
-
-// Java code wrapper
-const wrapJava = (studentCode) => {
-  const classMatch = studentCode.match(/(?:public\s+)?class\s+(\w+)/);
-  const className = classMatch ? classMatch[1] : "Main";
-  
-  let modifiedStudentCode = studentCode;
-  if (classMatch) {
-    modifiedStudentCode = modifiedStudentCode.replace(/public\s+class\s+/, "class ");
-  }
-  
-  modifiedStudentCode = modifiedStudentCode.replace(/public\s+static\s+void\s+main\s*\(/, "public static void studentMain(");
-  
-  return `
-import java.io.*;
-import java.util.*;
-
-${modifiedStudentCode}
-
-public class JDoodleWrapper {
-    public static void main(String[] args) throws Exception {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            sb.append(line).append("\\n");
-        }
-        String[] inputs = sb.toString().split("///", -1);
-        
-        InputStream origIn = System.in;
-        PrintStream origOut = System.out;
-        
-        for (int i = 0; i < inputs.length; i++) {
-            if (i > 0) {
-                origOut.println("///");
-            }
-            
-            System.setIn(new ByteArrayInputStream(inputs[i].getBytes()));
-            
-            try {
-                ${className}.studentMain(new String[0]);
-            } catch (Throwable t) {
-                t.printStackTrace(origOut);
-            }
-        }
-        System.setIn(origIn);
-    }
-}
-`;
-};
-
 // @desc    Get all contests (sorted by startTime desc)
 // @route   GET /api/contests
 // @access  Public
@@ -349,6 +202,9 @@ export const updateContest = async (req, res) => {
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
+        if (contest.ratingsCalculated) {
+            return res.status(409).json({ message: "A rated contest is finalized and cannot be edited." });
+        }
 
         const { start, end, error: scheduleError } = validateContestSchedule(
             startTime !== undefined ? startTime : contest.startTime,
@@ -374,9 +230,12 @@ export const updateContest = async (req, res) => {
             contest.status = status;
         }
 
+        // Do not overwrite a rating finalization committed since this read.
+        contest.$where = { ratingsCalculated: { $ne: true } };
         await contest.save();
         res.json(contest);
     } catch (error) {
+        if (error.name === 'DocumentNotFoundError') return res.status(409).json({ message: "Contest changed. Refresh before editing." });
         console.error("Error updating contest:", error);
         res.status(500).json({ message: "Internal server error" });
     }
@@ -387,8 +246,11 @@ export const updateContest = async (req, res) => {
 // @access  Protected (Admin Only)
 export const deleteContest = async (req, res) => {
     try {
-        const contest = await Contest.findByIdAndDelete(req.params.id);
+        const contest = await Contest.findOneAndDelete({ _id: req.params.id, ratingsCalculated: { $ne: true } });
         if (!contest) {
+            if (await Contest.exists({ _id: req.params.id })) {
+                return res.status(409).json({ message: "A rated contest cannot be deleted because leaderboards depend on its results." });
+            }
             return res.status(404).json({ message: "Contest not found" });
         }
         res.json({ message: "Contest deleted successfully" });
@@ -407,11 +269,18 @@ export const endContest = async (req, res) => {
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
+        if (contest.status === 'Ended' || contest.ratingsCalculated) {
+            await autoUpdateContestStatus(contest);
+            return res.json({ message: "Contest already ended", contest });
+        }
         contest.status = 'Ended';
         contest.endTime = new Date();
+        contest.$where = { ratingsCalculated: { $ne: true } };
         await contest.save();
+        await processRatingsForContest(contest);
         res.json({ message: "Contest ended successfully", contest });
     } catch (error) {
+        if (error.name === 'DocumentNotFoundError') return res.status(409).json({ message: "Contest changed. Refresh before ending it." });
         console.error("Error ending contest:", error);
         res.status(500).json({ message: "Internal server error" });
     }
@@ -426,14 +295,10 @@ export const getLeaderboard = async (req, res) => {
         if (!contest) {
             return res.status(404).json({ message: "Contest not found" });
         }
+        await autoUpdateContestStatus(contest);
         const populatedContest = await populateContestUsers(contest);
         // Sort participants: score DESC, penalty ASC
-        const leaderboard = [...(populatedContest.participants || [])].sort((a, b) => {
-            if (b.score !== a.score) {
-                return b.score - a.score;
-            }
-            return a.penalty - b.penalty;
-        });
+        const leaderboard = rankContestParticipants(populatedContest.participants || []);
         res.json(leaderboard);
     } catch (error) {
         console.error("Error getting contest leaderboard:", error);
@@ -449,29 +314,37 @@ export const getContestLeaderboard = getLeaderboard;
 // @access  Protected (Student Only)
 export const registerForContest = async (req, res) => {
     try {
-        const contest = await Contest.findById(req.params.id);
-        if (!contest) {
+        const id = req.params.id;
+        if (!mongoose.isObjectIdOrHexString(id)) {
             return res.status(404).json({ message: "Contest not found" });
         }
-        if (contest.status === 'Ended') {
+        const userId = req.user.id;
+        // MongoDB evaluates the deadline and membership in the same atomic write.
+        // Use database time so a request waiting on a write cannot register late.
+        const contest = await Contest.findOneAndUpdate({
+            _id: id,
+            status: { $in: ['Upcoming', 'Ongoing'] },
+            $expr: { $gt: ['$endTime', '$$NOW'] },
+            'participants.userId': { $ne: userId },
+        }, {
+            $push: { participants: { userId, score: 0, penalty: 0, solved: [] } },
+        }, { new: true, runValidators: true });
+        if (contest) return res.json({ message: "Registered successfully", contest });
+
+        // A failed match is read only to explain the result; never write from it.
+        const current = await Contest.findById(id);
+        if (!current) {
+            return res.status(404).json({ message: "Contest not found" });
+        }
+        if (current.status === 'Ended' || new Date(current.endTime) <= new Date()) {
             return res.status(400).json({ message: "Cannot register for an ended contest" });
         }
-
-        const userId = req.user.id;
-        const isRegistered = contest.participants.some(p => p.userId.toString() === userId.toString());
+        const isRegistered = current.participants.some(p => p.userId.toString() === userId.toString());
         if (isRegistered) {
             return res.status(400).json({ message: "You are already registered for this contest" });
         }
 
-        contest.participants.push({
-            userId,
-            score: 0,
-            penalty: 0,
-            solved: []
-        });
-
-        await contest.save();
-        res.json({ message: "Registered successfully", contest });
+        return res.status(409).json({ message: "Contest registration is unavailable. Please refresh and try again." });
     } catch (error) {
         console.error("Error registering for contest:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -545,13 +418,14 @@ export const submitToContest = async (req, res) => {
         const combinedInput = inputsArray.join('\n///\n');
 
         // Wrap the code according to language
+        const runtimeMarker = createRuntimeMarker();
         let wrappedCode = code;
         if (language === 'cpp') {
-            wrappedCode = wrapCpp(code);
+            wrappedCode = wrapCpp(code, runtimeMarker);
         } else if (language === 'python') {
-            wrappedCode = wrapPython(code);
+            wrappedCode = wrapPython(code, runtimeMarker);
         } else if (language === 'java') {
-            wrappedCode = wrapJava(code);
+            wrappedCode = wrapJava(code, runtimeMarker);
         }
 
         // JDoodle Configuration
@@ -582,14 +456,28 @@ export const submitToContest = async (req, res) => {
 
         const jdoodleOutput = response.data.output || "";
         const statusCode = response.data.statusCode;
+        const runtimeOutput = readRuntimeFailure(response.data, runtimeMarker);
+        const compilationOutput = readCompilationFailure(response.data, runtimeMarker);
         const cpuTime = response.data.cpuTime;
-        const memory = response.data.memory;
+        const reportedMemory = response.data.memory;
+        const memory = Number(reportedMemory);
+        const hasMemory = (typeof reportedMemory === 'number' || (typeof reportedMemory === 'string' && reportedMemory.trim() !== ''))
+            && Number.isFinite(memory) && memory >= 0;
+        if ((statusCode === 0 || statusCode === 200) && !hasMemory && !runtimeOutput && !compilationOutput) {
+            throw new Error('Execution service did not report valid memory usage. Please retry.');
+        }
 
         const cpuTimeMs = parseFloat(cpuTime) * 1000;
         
         let evaluationVerdict = '';
-        if (cpuTimeMs > timeLimit) {
+        if (compilationOutput || (statusCode !== 0 && statusCode !== 200)) {
+            evaluationVerdict = 'CE';
+        } else if (cpuTimeMs > timeLimit) {
             evaluationVerdict = 'TLE';
+        } else if (hasMemory && memory > memoryLimit * 1024) {
+            evaluationVerdict = 'MLE';
+        } else if (runtimeOutput) {
+            evaluationVerdict = 'RE';
         } else {
             const actualOutputs = jdoodleOutput.trim().split(splitDelimiter);
             
@@ -614,6 +502,12 @@ export const submitToContest = async (req, res) => {
             dbVerdict = 'Accepted';
         } else if (evaluationVerdict === 'TLE') {
             dbVerdict = 'Time Limit Exceeded';
+        } else if (evaluationVerdict === 'MLE') {
+            dbVerdict = 'Memory Limit Exceeded';
+        } else if (evaluationVerdict === 'RE') {
+            dbVerdict = 'Runtime Error';
+        } else if (evaluationVerdict === 'CE') {
+            dbVerdict = 'Compilation Error';
         } else {
             if (statusCode !== 0 && statusCode !== 200) {
                 dbVerdict = 'Compilation Error';
@@ -622,84 +516,101 @@ export const submitToContest = async (req, res) => {
             }
         }
 
-        // 3. Update Contest Participant Stats if not yet solved
-        const participant = contest.participants[participantIndex];
-        const alreadySolvedInContest = participant.solved.some(id => id.toString() === problemId.toString());
-
-        if (!alreadySolvedInContest) {
-            if (evaluationVerdict === 'AC') {
-                const elapsedMinutes = Math.round((new Date() - contest.startTime) / 60000);
-                participant.solved.push(problemId);
-                participant.score += 100; // 100 points per problem
-                participant.penalty += elapsedMinutes;
-                await contest.save();
-            } else {
-                // Wrong Answer / non-AC attempt adds 20 minutes penalty immediately
-                participant.penalty += 20;
-                await contest.save();
+        const participant = await withSubmissionTransaction(async session => {
+            // Read fresh scores inside the transaction so concurrent submissions
+            // cannot overwrite each other's score, penalty, or solved problems.
+            const currentContest = await Contest.findById(contestId).session(session);
+            if (!currentContest || currentContest.status !== 'Ongoing' || new Date() > currentContest.endTime) {
+                const error = new Error('Contest is no longer ongoing. This result was not saved.');
+                error.statusCode = 409;
+                throw error;
             }
-        }
+            // 3. Update Contest Participant Stats if not yet solved
+            const participant = currentContest.participants.find(p => p.userId.toString() === userId.toString());
+            if (!participant || !currentContest.problems.some(id => id.toString() === problemId.toString())) {
+                const error = new Error("Contest registration or problem selection changed. Please refresh.");
+                error.statusCode = 409;
+                throw error;
+            }
+            const alreadySolvedInContest = participant.solved.some(id => id.toString() === problemId.toString());
 
-        // 4. Update Student Stats generally
-        let stats = await StudentStats.findOne({ userId });
-        if (!stats) {
-            stats = new StudentStats({ userId });
-        }
-
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        if (evaluationVerdict === 'AC') {
-            const alreadySolvedGlobal = stats.solvedProblems.some(id => id.toString() === problemId.toString());
-            if (!alreadySolvedGlobal) {
-                stats.solvedProblems.push(problemId);
-                const diffKey = problem.difficulty.toLowerCase();
-                if (stats.difficultyBreakdown[diffKey] !== undefined) {
-                    stats.difficultyBreakdown[diffKey] += 1;
+            if (!alreadySolvedInContest) {
+                if (evaluationVerdict === 'AC') {
+                    const elapsedMinutes = Math.round((new Date() - currentContest.startTime) / 60000);
+                    participant.solved.push(problemId);
+                    participant.score += 100; // 100 points per problem
+                    participant.penalty += elapsedMinutes;
+                    await currentContest.save({ session });
+                } else {
+                    // Wrong Answer / non-AC attempt adds 20 minutes penalty immediately
+                    participant.penalty += 20;
+                    await currentContest.save({ session });
                 }
-                if (diffKey === 'easy') stats.points += 10;
-                else if (diffKey === 'medium') stats.points += 30;
-                else if (diffKey === 'hard') stats.points += 50;
             }
-            stats.attemptedProblems = stats.attemptedProblems.filter(id => id.toString() !== problemId.toString());
-            stats.lastActiveDate = todayStr;
-        } else {
-            const alreadySolvedGlobal = stats.solvedProblems.some(id => id.toString() === problemId.toString());
-            const alreadyAttemptedGlobal = stats.attemptedProblems.some(id => id.toString() === problemId.toString());
-            if (!alreadySolvedGlobal && !alreadyAttemptedGlobal) {
-                stats.attemptedProblems.push(problemId);
-            }
-        }
-        stats.totalSubmissionsCount = (stats.totalSubmissionsCount || 0) + 1;
-        await stats.save();
 
-        // 5. Save Submission Document
-        const newSubmission = new Submission({
-            problemId,
-            userId,
-            contestId,
-            code,
-            language,
-            verdict: dbVerdict,
-            timeTaken: Math.round(cpuTimeMs) || 0,
-            memoryUsed: memory || 0,
-            compileOutput: dbVerdict === 'Compilation Error' ? jdoodleOutput : ""
+            // 4. Update Student Stats generally
+            let stats = await StudentStats.findOne({ userId }).session(session);
+            if (!stats) {
+                stats = new StudentStats({ userId });
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            if (evaluationVerdict === 'AC') {
+                const alreadySolvedGlobal = stats.solvedProblems.some(id => id.toString() === problemId.toString());
+                if (!alreadySolvedGlobal) {
+                    stats.solvedProblems.push(problemId);
+                    const diffKey = problem.difficulty.toLowerCase();
+                    if (stats.difficultyBreakdown[diffKey] !== undefined) {
+                        stats.difficultyBreakdown[diffKey] += 1;
+                    }
+                    if (diffKey === 'easy') stats.points += 10;
+                    else if (diffKey === 'medium') stats.points += 30;
+                    else if (diffKey === 'hard') stats.points += 50;
+                }
+                stats.attemptedProblems = stats.attemptedProblems.filter(id => id.toString() !== problemId.toString());
+                stats.lastActiveDate = todayStr;
+            } else {
+                const alreadySolvedGlobal = stats.solvedProblems.some(id => id.toString() === problemId.toString());
+                const alreadyAttemptedGlobal = stats.attemptedProblems.some(id => id.toString() === problemId.toString());
+                if (!alreadySolvedGlobal && !alreadyAttemptedGlobal) {
+                    stats.attemptedProblems.push(problemId);
+                }
+            }
+            stats.totalSubmissionsCount = (stats.totalSubmissionsCount || 0) + 1;
+            await stats.save({ session });
+
+            // 5. Save Submission Document
+            const newSubmission = new Submission({
+                problemId,
+                userId,
+                contestId,
+                code,
+                language,
+                verdict: dbVerdict,
+                timeTaken: Math.round(cpuTimeMs) || 0,
+                memoryUsed: hasMemory ? memory : 0,
+                compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : ""
         });
-        await newSubmission.save();
+        await newSubmission.save({ session });
+
+        return { score: participant.score, penalty: participant.penalty };
+        });
 
         return res.status(200).json({
             message: "Contest submission evaluated successfully",
             verdict: dbVerdict,
             evaluationVerdict,
             timeTaken: Math.round(cpuTimeMs) || 0,
-            memoryUsed: memory || 0,
-            compileOutput: dbVerdict === 'Compilation Error' ? jdoodleOutput : "",
+            memoryUsed: hasMemory ? memory : 0,
+            compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : "",
             score: participant.score,
             penalty: participant.penalty
         });
     } catch (error) {
         console.error("Contest submission evaluation error:", error);
-        return res.status(500).json({
-            message: "An internal error occurred during submission processing.",
+        return res.status(error.statusCode || 500).json({
+            message: error.statusCode ? error.message : "An internal error occurred during submission processing.",
             error: error.message
         });
     }

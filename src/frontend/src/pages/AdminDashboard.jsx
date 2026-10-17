@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { fetchJson } from "../lib/fetch-json";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getBackendURL } from "../lib/auth-client";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -24,7 +25,7 @@ const formatCountdown = (targetDate, now) => {
 };
 
 const CountdownTimer = ({ targetDate }) => {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(Date.now);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -95,47 +96,21 @@ const AdminDashboard = () => {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const fetchDashboardData = async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/admin/dashboard-summary`, {
-        credentials: "include"
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
-      } else {
-        setError("Failed to fetch dashboard data");
-      }
-    } catch (err) {
-      console.error("Error loading dashboard data:", err);
-      setError("Error connecting to backend API");
-    }
-  };
-
-  const fetchContests = async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/contests`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setContests(data);
-      }
-    } catch (err) {
-      console.error("Error fetching contests:", err);
-    }
-  };
-
-  const loadData = async () => {
-    setLoading(true);
-    setError("");
-    await Promise.all([fetchDashboardData(), fetchContests()]);
-    setLoading(false);
-  };
+  const fetchContests = useCallback(() =>
+    fetchJson(getBackendURL() + "/api/contests")
+      .then(setContests)
+      .catch(error => console.error("Error fetching contests:", error)), []);
 
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    const dashboard = fetchJson(getBackendURL() + "/api/admin/dashboard-summary", { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setDashboardData(data); })
+      .catch(() => { if (!controller.signal.aborted) setError("Failed to fetch dashboard data"); });
+    const contests = fetchJson(getBackendURL() + "/api/contests", { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setContests(data); })
+      .catch(() => { if (!controller.signal.aborted) setError("Failed to fetch contests"); });
+    Promise.all([dashboard, contests]).then(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
   const handleApprove = async (id) => {

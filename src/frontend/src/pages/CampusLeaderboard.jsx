@@ -76,11 +76,12 @@ const CampusLeaderboard = () => {
                                 </h1>
                             </div>
                             <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                <div className="text-sm font-black uppercase text-slate-500">Campus Total</div>
-                                <div className="text-3xl md:text-5xl font-black font-spartan">{(university?.totalRating ?? 0).toLocaleString()}</div>
+                                <div className="text-sm font-black uppercase text-slate-500">University rating score</div>
+                                <div className="text-3xl md:text-5xl font-black font-spartan">{typeof university?.totalRating === 'number' ? university.totalRating.toLocaleString() : 'Unranked'}</div>
                             </div>
                         </div>
                     </div>
+                    <p className="mb-6 text-sm text-slate-600">Only active members with completed rated contest results are ranked. The top 10 ratings contribute to the university score. Practice points are separate.</p>
 
                     <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
                         <div className="grid grid-cols-12 gap-4 p-4 border-b-4 border-black bg-slate-100 font-black uppercase text-sm md:text-base">
@@ -92,14 +93,14 @@ const CampusLeaderboard = () => {
                         <div className="flex flex-col">
                             {students.length === 0 && (
                                 <div className="p-8 text-center font-bold text-slate-500 uppercase">
-                                    No students found on this campus.
+                                    No rated participants yet. Students appear here after completing a rated contest.
                                 </div>
                             )}
                             
                             {students.map((student) => {
                                 const campusRank = student.rank;
                                 const isMe = session?.user?.id === student.id || session?.user?.id === student._id?.toString();
-                                const rating = student.contestRating ?? 1000;
+                                const rating = student.contestRating;
                                 
                                 const getRatingBadge = (r) => {
                                     if (r < 1200) return { title: "Novice", color: "bg-slate-200 text-black" };

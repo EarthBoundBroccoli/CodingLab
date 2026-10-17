@@ -1,5 +1,7 @@
+import { fetchJson } from "../../lib/fetch-json";
 import { useEffect, useMemo, useState } from "react";
 import { getBackendURL } from "../../lib/auth-client";
+import { usePagination } from "../../hooks/usePagination";
 import { Loader2, AlertCircle, Search, Filter, X } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -131,32 +133,16 @@ const AdminProblemRequests = () => {
   const [activeStatus, setActiveStatus] = useState(null);
   const [activeTags, setActiveTags] = useState([]);
   const [sortOrder, setSortOrder] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState(null);
 
-  const fetchProblems = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${getBackendURL()}/api/admin/problems`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRequests(data);
-      } else {
-        setError("Failed to fetch problem requests");
-      }
-    } catch (err) {
-      console.error("Error fetching problem requests:", err);
-      setError("Error connecting to backend API");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchProblems();
+    const controller = new AbortController();
+    fetchJson(getBackendURL() + "/api/admin/problems", { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setRequests(data); })
+      .catch(() => { if (!controller.signal.aborted) setError("Failed to fetch problem requests"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
   const pendingProblems = useMemo(
@@ -218,7 +204,9 @@ const AdminProblemRequests = () => {
   }, [requests, activeTab, pendingProblems, rejectedProblems, searchQuery, activeDifficulty, activeStatus, activeTags, sortOrder]);
 
   const totalPages = Math.ceil(filteredProblems.length / PAGE_SIZE) || 0;
-  const safePage = totalPages === 0 ? 1 : Math.min(currentPage, totalPages);
+  const [safePage, setCurrentPage] = usePagination(
+    JSON.stringify([activeTab, searchQuery, activeDifficulty, activeStatus, activeTags, sortOrder]), totalPages
+  );
 
   const paginatedProblems = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
@@ -234,16 +222,6 @@ const AdminProblemRequests = () => {
   );
 
   const showReviewActions = selected && selected.status.toLowerCase() === "pending";
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchQuery, activeDifficulty, activeStatus, activeTags, sortOrder]);
-
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
 
   const showToast = (message) => {
     setToast(message);

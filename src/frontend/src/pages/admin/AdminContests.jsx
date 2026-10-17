@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { fetchJson } from "../../lib/fetch-json";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getBackendURL } from "../../lib/auth-client";
 import { Loader2, AlertCircle } from "lucide-react";
 
@@ -69,6 +70,9 @@ const AdminContests = () => {
   const [deletingContest, setDeletingContest] = useState(null);
   const [endingContest, setEndingContest] = useState(null);
   const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saveInProgress = useRef(false);
 
   const selectedProblems = useMemo(() => {
     return problems.filter((problem) => form.problemIds.includes(problem._id || problem.id));
@@ -79,52 +83,26 @@ const AdminContests = () => {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const fetchContests = async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/contests`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setContests(data);
-      } else {
-        setError("Failed to fetch contests");
-      }
-    } catch (err) {
-      console.error("Error fetching contests:", err);
-      setError("Failed to connect to backend API");
-    }
-  };
-
-  const fetchProblems = async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/problems`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Only show approved problems in picker
-        const approved = data.filter(p => p.status === 'approved' || p.status === 'Approved');
-        setProblems(approved);
-      }
-    } catch (err) {
-      console.error("Error fetching problems:", err);
-    }
-  };
-
-  const loadData = async () => {
-    setLoading(true);
-    setError("");
-    await Promise.all([fetchContests(), fetchProblems()]);
-    setLoading(false);
-  };
+  const fetchContests = useCallback(signal =>
+    fetchJson(getBackendURL() + "/api/contests", { signal })
+      .then(data => { if (!signal?.aborted) { setContests(data); setError(""); } })
+      .catch(() => { if (!signal?.aborted) setError("Failed to fetch contests"); }), []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    const problems = fetchJson(getBackendURL() + "/api/problems", { signal: controller.signal })
+      .then(data => {
+        if (!controller.signal.aborted) setProblems(data.filter(p => p.status.toLowerCase() === "approved"));
+      })
+      .catch(() => { if (!controller.signal.aborted) setError("Failed to fetch problems"); });
+    Promise.all([fetchContests(controller.signal), problems])
+      .then(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [fetchContests]);
 
   const resetForm = () => {
     setForm(emptyForm);
+    setSaveError("");
   };
 
   const toggleProblem = (problemId) => {
@@ -145,14 +123,28 @@ const AdminContests = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saveInProgress.current) return;
     if (!form.name || !form.startTime || !form.endTime || !form.problemIds.length) return;
 
+    saveInProgress.current = true;
+    setSaving(true);
+    setSaveError("");
     try {
+      const start = new Date(form.startTime);
+      const end = new Date(form.endTime);
+      if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+        setSaveError("Enter a valid start and end time.");
+        return;
+      }
+      if (end <= start) {
+        setSaveError("End time must be after start time.");
+        return;
+      }
       const payload = {
         name: form.name,
         description: form.description,
-        startTime: new Date(form.startTime).toISOString(),
-        endTime: new Date(form.endTime).toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         problems: form.problemIds,
       };
 
@@ -176,16 +168,21 @@ const AdminContests = () => {
         resetForm();
         fetchContests();
       } else {
-        const errorData = await response.json();
-        showToast(errorData.message || "Failed to save contest");
+        const errorData = await response.json().catch(() => ({}));
+        setSaveError(errorData.message || "Failed to save contest. Please try again.");
       }
     } catch (err) {
       console.error("Error saving contest:", err);
-      showToast("Error connecting to backend API");
+      setSaveError("Could not confirm the save. Check the contest list before trying again.");
+    } finally {
+      saveInProgress.current = false;
+      setSaving(false);
     }
   };
 
   const handleEdit = (contest) => {
+    if (saveInProgress.current) return;
+    setSaveError("");
     setForm({
       id: contest._id || contest.id,
       name: contest.name,
@@ -320,6 +317,8 @@ const AdminContests = () => {
                           <button
                             type="button"
                             onClick={() => handleEdit(contest)}
+                            disabled={contest.ratingsCalculated}
+                            title={contest.ratingsCalculated ? "Rated results are finalized" : undefined}
                             className="btn btn-xs bg-white border-2 border-black rounded-none font-black uppercase hover:bg-emerald-300 text-black cursor-pointer"
                           >
                             Edit
@@ -327,6 +326,8 @@ const AdminContests = () => {
                           <button
                             type="button"
                             onClick={() => setDeletingContest(contest)}
+                            disabled={contest.ratingsCalculated}
+                            title={contest.ratingsCalculated ? "Rated results are required for leaderboards" : undefined}
                             className="btn btn-xs bg-white border-2 border-black rounded-none font-black uppercase hover:bg-error text-black cursor-pointer"
                           >
                             Delete
@@ -357,7 +358,9 @@ const AdminContests = () => {
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 lg:p-6 space-y-4">
+        <form onSubmit={handleSubmit} aria-busy={saving} className="p-5 lg:p-6 space-y-4">
+          {saveError && <p role="alert" className="font-bold text-sm text-red-700">{saveError}</p>}
+          <fieldset disabled={saving} className="space-y-4 min-w-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-black uppercase tracking-widest text-black">
@@ -452,17 +455,18 @@ const AdminContests = () => {
             </button>
             <button
               type="submit"
-              disabled={form.problemIds.length === 0}
+              disabled={saving || form.problemIds.length === 0}
               title={form.problemIds.length === 0 ? "Please select at least 1 problem" : ""}
               className={`px-4 py-3 border-4 border-black font-black uppercase text-xs shadow-[3px_3px_0px_0px_black] ${
-                form.problemIds.length === 0
+                saving || form.problemIds.length === 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                   : "bg-slate-900 text-white hover:bg-emerald-400 hover:text-black cursor-pointer"
               }`}
             >
-              {form.id ? "Update Contest" : "Create Contest"}
+              {saving ? "Saving…" : form.id ? "Update Contest" : "Create Contest"}
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
 

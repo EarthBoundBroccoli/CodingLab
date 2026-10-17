@@ -28,7 +28,7 @@ const submissionSchema = new mongoose.Schema({
     default: 'Queue' 
   },
   timeTaken: { type: Number, default: 0 }, // In milliseconds (from JDoodle response)
-  memoryUsed: { type: Number, default: 0 }, // In KB/MB
+  memoryUsed: { type: Number, default: 0 }, // JDoodle memory usage in KB
   compileOutput: { type: String, default: "" } // Error diagnostics block if compilation breaks
 }, { 
   timestamps: true 

@@ -30,7 +30,10 @@ const contestFixture = () => ({
 function setup(t, status) {
     t.mock.method(auth.api, 'getSession', async () => ({ user: { id: userId } }));
     const contest = contestFixture();
-    t.mock.method(Contest, 'findById', async () => contest);
+    t.mock.method(Contest, 'findById', () => ({
+        then: (resolve, reject) => Promise.resolve(contest).then(resolve, reject),
+        session: async () => contest,
+    }));
     const originalFind = Problem.findOne.bind(Problem);
     t.mock.method(Problem, 'findOne', (...args) => {
         const query = originalFind(...args);
@@ -93,7 +96,8 @@ for (const [kind, handler] of [['practice', submitProblemSolution], ['contest', 
         t.mock.method(console, 'log', () => {});
         t.mock.method(axios, 'post', async () => ({ data: { output: '2', statusCode: 200, cpuTime: '0.001', memory: '100' } }));
         const stats = new StudentStats({ userId });
-        t.mock.method(StudentStats, 'findOne', async () => stats);
+        t.mock.method(StudentStats.db, 'transaction', async callback => callback({ testTransaction: true }));
+        t.mock.method(StudentStats, 'findOne', () => ({ session: async () => stats }));
         let statsSaves = 0;
         let submissionSaves = 0;
         t.mock.method(StudentStats.prototype, 'save', async () => { statsSaves++; });

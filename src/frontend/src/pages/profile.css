@@ -1,0 +1,63 @@
+.student-profile { width: calc(100% - 64px); max-width: 1600px; margin: 0 auto; padding: 30px 0 48px; color: #111827; }
+.profile-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.profile-page-heading h1 { font: 800 36px/1 'League Spartan', sans-serif; letter-spacing: -.8px; margin: 0; }
+.profile-page-heading p { font-size: 14px; color: #64748b; margin: 8px 0 0; }
+.profile-text-link { display: inline-flex; align-items: center; gap: 6px; color: #111827; font-size: 13px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.profile-text-link:hover { color: #047857; }
+.profile-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
+.profile-panel { background: white; border: 2px solid #111; box-shadow: 4px 4px 0 #111; min-width: 0; }
+.profile-identity { padding: 26px 24px 24px; border-top: 5px solid #34d399; }
+.profile-avatar { width: 88px; height: 88px; border: 2px solid #111; background: #a7f3d0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; margin-bottom: 20px; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-identity h2 { font: 800 28px/1.1 'League Spartan', sans-serif; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.profile-email { margin-top: 7px; font-size: 12px; color: #64748b; overflow-wrap: anywhere; }
+.profile-university { display: flex; gap: 8px; margin-top: 20px; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.profile-university svg { flex-shrink: 0; margin-top: 2px; color: #64748b; }
+.profile-bio { font-size: 14px; line-height: 1.65; margin-top: 14px; color: #475569; white-space: pre-line; overflow-wrap: anywhere; }
+.profile-socials { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 16px; }
+.profile-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.profile-role { border: 1px solid #94a3b8; padding: 4px 8px; font-size: 10px; text-transform: uppercase; font-weight: 700; }
+.profile-sidebar-stats { margin-top: 24px; padding-top: 8px; border-top: 1px solid #e2e8f0; }
+.profile-sidebar-stats div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; font-size: 14px; }
+.profile-sidebar-stats dt { color: #64748b; }
+.profile-sidebar-stats dd { font-weight: 800; font-variant-numeric: tabular-nums; }
+.profile-sidebar-actions { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+.profile-edit-button { display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #111; background: #111827; color: white; padding: 11px 14px; font-weight: 800; font-size: 12px; text-transform: uppercase; }
+.profile-edit-button:hover { background: #34d399; color: #111; }
+.profile-content { display: grid; gap: 24px; min-width: 0; }
+.profile-panel-heading { padding: 20px 22px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid #e2e8f0; }
+.profile-panel-heading h2 { font: 800 19px/1.1 'League Spartan', sans-serif; letter-spacing: -.2px; }
+.profile-section-note { color: #64748b; font-size: 11px; }
+.profile-year-picker { background: #f8fafc; border: 1px solid #94a3b8; font-size: 12px; padding: 6px 10px; color: #111; }
+.profile-activity-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 20px 22px 0; font-size: 14px; color: #64748b; }
+.profile-activity-summary strong { font-size: 26px; color: #111827; font-weight: 800; font-variant-numeric: tabular-nums; }
+.profile-calendar { margin: 12px 20px 6px; overflow-x: auto; }
+.profile-calendar svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.profile-calendar text { fill: #64748b; font-size: 10px; font-family: inherit; }
+.profile-activity-footer { padding: 8px 22px 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; font-size: 12px; color: #64748b; }
+.profile-activity-totals { display: flex; flex-wrap: wrap; gap: 18px; }
+.profile-activity-totals strong { color: #111827; }
+.profile-legend { display: flex; gap: 4px; align-items: center; font-size: 10px; }
+.profile-legend span { width: 10px; height: 10px; }
+.profile-bottom-grid { min-width: 0; }
+.profile-rating-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 22px; gap: 12px; }
+.profile-rating-metrics dt { color: #64748b; font-size: 12px; margin-bottom: 6px; }
+.profile-rating-metrics dd { font-size: 28px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.profile-rating-metrics .profile-rating-status { font-size: 20px; line-height: 1.4; }
+.profile-rating-chart { height: 200px; padding: 0 14px 12px; }
+.profile-empty { padding: 30px 22px 32px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.profile-empty > svg { color: #94a3b8; }
+.profile-empty h3 { font-size: 16px; font-weight: 750; }
+.profile-empty p { font-size: 14px; line-height: 1.7; color: #64748b; max-width: 32ch; }
+.profile-rating-empty { border-top: 1px solid #e2e8f0; padding-top: 22px; }
+.profile-contest-table { width: 100%; text-align: left; font-size: 12px; border-top: 1px solid #e2e8f0; }
+.profile-contest-table th { background: #f8fafc; font-size: 10px; text-transform: uppercase; color: #64748b; }
+.profile-contest-table th, .profile-contest-table td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }
+.profile-contest-table a { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.profile-expand { padding: 14px 20px; }
+.profile-inline-message { padding: 22px; font-size: 14px; color: #64748b; }
+.profile-inline-message button { margin-top: 10px; }
+.profile-notice { margin-bottom: 20px; padding: 14px 18px; border: 1px solid #94a3b8; background: white; font-size: 13px; }
+@media (min-width: 1500px) { .profile-calendar { margin-top: 18px; } .profile-rating-chart { height: 230px; } }
+@media (max-width: 1150px) { .profile-layout { grid-template-columns: 260px minmax(0, 1fr); gap: 20px; } .profile-bottom-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
+@media (max-width: 800px) { .student-profile { width: calc(100% - 32px); padding-top: 24px; } .profile-layout { grid-template-columns: minmax(0, 1fr); } .profile-identity { padding: 20px; } .profile-content { gap: 20px; } .profile-page-heading h1 { font-size: 30px; } .profile-page-heading p { font-size: 12px; } .profile-sidebar-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; } .profile-sidebar-stats div { font-size: 12px; } .profile-panel-heading { padding: 18px; } .profile-page-heading { align-items: flex-start; } .profile-page-heading > a { max-width: 110px; font-size: 12px; } }

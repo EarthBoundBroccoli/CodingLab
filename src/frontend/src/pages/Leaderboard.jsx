@@ -48,7 +48,7 @@ const Leaderboard = () => {
                     See which campus dominates the algorithm arena.
                 </p>
                 <p className="text-sm font-bold bg-white inline-block mt-4 px-3 py-1 border-2 border-black uppercase shadow-[2px_2px_0px_0px_black]">
-                    *Scores are calculated using the sum of the Top 10 ratings per university. Students and problem setters count; equal scores share a rank.
+                    University score = the sum of its top 10 active, rated members’ contest ratings. A completed rated contest is required. Practice points do not count; equal scores share a rank.
                 </p>
             </div>
 
@@ -65,7 +65,7 @@ const Leaderboard = () => {
                 </div>
             ) : error ? null : (
                 <div className="flex flex-col gap-4">
-                    {!universities.length && !error && <p className="bg-white border-2 border-black p-6 text-sm">No university rankings yet. Join a university in your profile settings to participate.</p>}
+                    {!universities.length && !error && <p className="bg-white border-2 border-black p-6 text-sm">No university rankings yet. Active members must select a university and complete a rated contest to contribute. Joining a university alone does not add to its score.</p>}
                     {universities.map((uni) => {
                         const globalRank = uni.rank;
                         let bgClass = "bg-white";
@@ -95,8 +95,9 @@ const Leaderboard = () => {
                                 </div>
                                 <div className="text-right flex flex-col items-end gap-1">
                                     <div className="text-2xl md:text-4xl font-black font-spartan">
-                                        {uni.totalRating.toLocaleString()} <span className="text-sm md:text-xl">CR</span>
+                                        {uni.totalRating.toLocaleString()}
                                     </div>
+                                    <span className="text-xs font-bold">University rating score · {uni.totalStudents} rated members</span>
                                     <div className="flex items-center gap-1 font-bold group-hover:text-emerald-600 transition-colors">
                                         View Campus <ArrowRight size={20} strokeWidth={3} />
                                     </div>

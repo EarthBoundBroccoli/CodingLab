@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useSession, authClient, getBackendURL } from "../lib/auth-client";
+import { useState, useEffect, useRef } from "react";
+import { useSession, getBackendURL } from "../lib/auth-client";
 import { CheckCircle, Clock, AlertCircle, Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,18 +22,27 @@ const BecomeSetter = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
+    const [statusError, setStatusError] = useState("");
+    const [statusAttempt, setStatusAttempt] = useState(0);
+    const [editingReapplication, setEditingReapplication] = useState(false);
+    const [decisionReason, setDecisionReason] = useState("");
+    const submitting = useRef(false);
+    const userId = session?.user?.id;
 
     // Fetch status from backend on mount
     useEffect(() => {
+        const controller = new AbortController();
         const fetchStatus = async () => {
-            if (!session?.user?.id) return;
+            if (!userId) return;
             try {
                 const response = await fetch(`${getBackendURL()}/api/setter/status`, {
-                    credentials: "include"
+                    credentials: "include", signal: controller.signal,
                 });
                 if (response.ok) {
                     const data = await response.json();
+                    if (controller.signal.aborted) return;
                     setSubmissionStatus(data.status);
+                    setDecisionReason(data.request?.decisionReason || "");
                     if (data.request) {
                         setFormData({
                             institute: data.request.institute || "",
@@ -44,16 +53,17 @@ const BecomeSetter = () => {
                             motivation: data.request.motivation || ""
                         });
                     }
-                }
+                } else throw new Error("Could not load your application status.");
             } catch (err) {
-                console.error("Error fetching setter status:", err);
+                if (!controller.signal.aborted) setStatusError(err.message || "Could not load your application status.");
             } finally {
-                setIsLoading(false);
+                if (!controller.signal.aborted) setIsLoading(false);
             }
         };
 
         fetchStatus();
-    }, [session]);
+        return () => controller.abort();
+    }, [userId, statusAttempt]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -62,6 +72,8 @@ const BecomeSetter = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting.current) return;
+        submitting.current = true;
         setIsSubmitting(true);
         setError("");
         
@@ -79,10 +91,7 @@ const BecomeSetter = () => {
 
             if (response.ok) {
                 setSubmissionStatus(data.status);
-                // Refresh Better Auth session on frontend so roles are updated
-                await authClient.getSession();
-                // Optionally reload to ensure navbar updates
-                window.location.reload();
+                setEditingReapplication(false);
             } else {
                 setError(data.message || "Something went wrong.");
             }
@@ -90,6 +99,7 @@ const BecomeSetter = () => {
             console.error("Error submitting application:", err);
             setError("Failed to connect to backend server.");
         } finally {
+            submitting.current = false;
             setIsSubmitting(false);
         }
     };
@@ -101,6 +111,15 @@ const BecomeSetter = () => {
             </div>
         );
     }
+
+    if (statusError) return (
+        <div className="max-w-2xl mx-auto py-20 px-4 text-center space-y-4">
+            <p role="alert" className="font-bold">{statusError}</p>
+            <button className="btn rounded-none border-2 border-black bg-white" onClick={() => {
+                setStatusError(""); setIsLoading(true); setStatusAttempt(value => value + 1);
+            }}>Retry</button>
+        </div>
+    );
 
     // If user is already a problem setter, redirect or show message
     if (session?.user?.role === 'problem_setter' || submissionStatus === 'accepted') {
@@ -137,14 +156,16 @@ const BecomeSetter = () => {
     }
 
     // Rejected Status View
-    if (submissionStatus === 'rejected') {
+    if (submissionStatus === 'rejected' && !editingReapplication) {
         return (
             <div className="max-w-2xl mx-auto py-20 px-4 text-center space-y-6">
                 <div className="bg-error border-4 border-black p-10 neo-brutal inline-block">
                     <AlertCircle size={80} className="mx-auto mb-4" />
                     <h1 className="text-3xl font-black uppercase font-spartan tracking-tight">Application Rejected</h1>
-                    <p className="text-lg font-bold mt-4 uppercase italic">Unfortunately, your application was not approved at this time. (No resubmission available yet)</p>
+                    <p className="text-lg font-bold mt-4">You can update your details and submit a new application.</p>
+                    <p className="mt-4 whitespace-pre-wrap break-words">{decisionReason || 'Check your inbox for the feedback on your previous application.'}</p>
                 </div>
+                <button onClick={() => setEditingReapplication(true)} className="btn bg-white rounded-none border-4 border-black font-black uppercase">Edit and reapply</button>
             </div>
         );
     }
@@ -160,6 +181,7 @@ const BecomeSetter = () => {
                 </div>
 
                 <div className="p-8">
+                    {editingReapplication && <p className="mb-6 font-bold">Update your previous details below. Your earlier application and decision will be preserved.</p>}
                     <form onSubmit={handleSubmit} className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Institute */}
@@ -262,7 +284,7 @@ const BecomeSetter = () => {
                         </div>
 
                         {error && (
-                            <div className="bg-error border-4 border-black p-4 text-black font-black uppercase text-sm flex items-center gap-2">
+                            <div role="alert" className="bg-error border-4 border-black p-4 text-black font-black uppercase text-sm flex items-center gap-2">
                                 <AlertCircle size={20} />
                                 {error}
                             </div>
@@ -278,7 +300,7 @@ const BecomeSetter = () => {
                                 {isSubmitting ? (
                                     <span className="loading loading-spinner"></span>
                                 ) : (
-                                    <><Send size={24} /> Submit Application</>
+                                    <><Send size={24} /> {editingReapplication ? "Submit updated application" : "Submit Application"}</>
                                 )}
                             </button>
                         </div>
@@ -288,7 +310,7 @@ const BecomeSetter = () => {
 
             {/* Hint Footer */}
             <div className="mt-8 bg-error text-black p-4 border-4 border-black italic text-[12px] font-black uppercase text-center">
-                Note: You can only submit once. Admins will review your application and update your role accordingly.
+                Only one application can be under review at a time. If rejected, you can update your details and reapply.
             </div>
         </div>
     );

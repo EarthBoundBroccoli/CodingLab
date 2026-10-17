@@ -3,7 +3,7 @@ import test from 'node:test';
 import { Contest } from '../models/Contest.js';
 import { StudentStats } from '../models/StudentStats.js';
 import { User } from '../models/User.js';
-import { processRatingsForContest } from '../utils/contestRatings.js';
+import { processRatingsForContest, refreshPendingContestRatings } from '../utils/contestRatings.js';
 import { calculateContestRatingsForContest } from '../controllers/contestController.js';
 
 const userIds = ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'];
@@ -47,12 +47,17 @@ function database(t) {
         finally { release(); }
     });
     t.mock.method(Contest, 'findById', id => query(() => hydrateContest(id)));
+    t.mock.method(Contest, 'find', filter => ({ sort: async () => [...state.contests.values()]
+        .filter(c => !c.ratingsCalculated && c.participants.length && new Date(c.endTime) <= new Date(filter.endTime.$lte)
+            && (c.status === 'Ended' || new Date(c.endTime) < new Date()))
+        .sort((a, b) => new Date(a.endTime) - new Date(b.endTime) || String(a._id).localeCompare(String(b._id)))
+        .map(c => Contest.hydrate(c)) }));
     t.mock.method(Contest, 'findOneAndUpdate', async (filter, update, options) => {
         assert.ok(options.session?.testTransaction);
         assert.deepEqual(filter.ratingsCalculated, { $ne: true });
-        assert.equal(filter.status, 'Ended');
+        assert.equal(filter.$or[0].status, 'Ended');
         const stored = state.contests.get(filter._id.toString());
-        if (stored.ratingsCalculated || stored.status !== filter.status) return null;
+        if (stored.ratingsCalculated || (stored.status !== 'Ended' && new Date(stored.endTime) >= new Date())) return null;
         Object.assign(stored, update.$set);
         return hydrateContest(filter._id);
     });
@@ -165,4 +170,66 @@ test('legacy history is recovered without reapplying it or resetting later ratin
     assert.equal(savedStats.ratingHistory[0].oldRating, 1200);
     assert.equal(reload().participants[0].newRating, 1300);
     assert.equal(reload().participants[0].ratingChange, '+100');
+});
+
+test('a new contestant starts at 1000 whether or not practice stats exist', async t => {
+    const { state, contest, reload } = database(t);
+    state.stats.delete(userIds[0]);
+    state.users.get(userIds[0]).rating = 0;
+    state.stats.get(userIds[1]).contestRating = 1000;
+    await processRatingsForContest(contest);
+    assert.deepEqual(reload().participants.map(p => p.oldRating), [1000, 1000]);
+});
+
+test('auth ID participant updates legacy stats instead of creating a second rating', async t => {
+    const { state, contest, reload } = database(t);
+    const authId = 'string-auth-identity';
+    state.users.get(userIds[0]).id = authId;
+    state.contests.get(contest.id).participants[0].userId = authId;
+    await processRatingsForContest(reload());
+    assert.equal(state.stats.has(authId), false);
+    assert.equal(state.stats.get(userIds[0]).ratingHistory.length, 1);
+    assert.equal(reload().participants[0].oldRating, 1200);
+    assert.equal(reload().participants[0].newRating, state.stats.get(userIds[0]).contestRating);
+});
+
+test('rating a later contest first finalizes the earlier elapsed round first', async t => {
+    const { state, contest, reload } = database(t);
+    const earlier = new Contest({
+        name: 'Earlier round', status: 'Ongoing',
+        startTime: new Date(contest.startTime.getTime() - 120_000),
+        endTime: new Date(contest.endTime.getTime() - 120_000),
+        participants: userIds.map((userId, i) => ({ userId, score: i + 1 }))
+    });
+    state.contests.set(earlier.id, earlier.toObject());
+    await processRatingsForContest(reload());
+    for (const stats of state.stats.values()) {
+        assert.deepEqual(stats.ratingHistory.map(h => String(h.contestId)), [earlier.id, contest.id]);
+        assert.equal(stats.ratingHistory[1].oldRating, stats.ratingHistory[0].newRating);
+        assert.equal(stats.contestRating, stats.ratingHistory[1].newRating);
+    }
+    assert.equal(state.contests.get(earlier.id).status, 'Ended');
+});
+
+test('leaderboard refresh finalizes elapsed ratings without visiting the contest page', async t => {
+    const { state, reload } = database(t);
+    t.mock.method(Contest, 'findOne', filter => {
+        assert.deepEqual(filter.ratingsCalculated, { $ne: true });
+        return { sort: async () => reload() };
+    });
+    await refreshPendingContestRatings();
+    assert.equal(reload().ratingsCalculated, true);
+    for (const stats of state.stats.values()) assert.equal(stats.ratingHistory.length, 1);
+});
+
+test('simultaneous requests for different rounds preserve chronological rating history', async t => {
+    const { state, contest, reload } = database(t);
+    const later = new Contest({ ...contest.toObject(), _id: undefined,
+        endTime: new Date(contest.endTime.getTime() + 1000) });
+    state.contests.set(later.id, later.toObject());
+    await Promise.all([processRatingsForContest(later), processRatingsForContest(reload())]);
+    for (const stats of state.stats.values()) {
+        assert.deepEqual(stats.ratingHistory.map(h => String(h.contestId)), [contest.id, later.id]);
+        assert.equal(stats.ratingHistory[1].oldRating, stats.ratingHistory[0].newRating);
+    }
 });

@@ -1,8 +1,10 @@
 /**
- * Contest ELO Rating Calculator (Codeforces / Elo-MMR Algorithm)
+ * Contest rating calculator using expected ranks and a deflation adjustment.
  * 
  * Computes post-contest rating changes based on expected rank vs actual rank.
  */
+
+export const INITIAL_RATING = 1000;
 
 /**
  * Calculates win probability of player A over player B
@@ -68,7 +70,7 @@ export function calculateContestRatings(participants) {
 
   if (participants.length === 1) {
     const p = participants[0];
-    const oldRating = p.oldRating || 1500;
+    const oldRating = p.oldRating ?? INITIAL_RATING;
     return [{
       ...p,
       oldRating,
@@ -79,12 +81,12 @@ export function calculateContestRatings(participants) {
   }
 
   const n = participants.length;
-  const allRatings = participants.map(p => p.oldRating || 1500);
+  const allRatings = participants.map(p => p.oldRating ?? INITIAL_RATING);
   const rawDeltas = [];
 
   for (let i = 0; i < n; i++) {
     const p = participants[i];
-    const oldRating = p.oldRating || 1500;
+    const oldRating = p.oldRating ?? INITIAL_RATING;
     const actualRank = p.rank;
 
     const expectedRank = getExpectedRank(oldRating, allRatings, i);
@@ -99,10 +101,11 @@ export function calculateContestRatings(participants) {
   const adjustment = Math.round(-sumDeltas / n) - 1;
 
   return participants.map((p, i) => {
-    const oldRating = p.oldRating || 1500;
+    const oldRating = p.oldRating ?? INITIAL_RATING;
     const finalDelta = rawDeltas[i] + adjustment;
     const newRating = Math.max(1, oldRating + finalDelta);
-    const ratingChange = finalDelta >= 0 ? `+${finalDelta}` : `${finalDelta}`;
+    const appliedDelta = newRating - oldRating;
+    const ratingChange = appliedDelta >= 0 ? `+${appliedDelta}` : `${appliedDelta}`;
 
     return {
       ...p,

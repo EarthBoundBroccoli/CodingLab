@@ -1,3 +1,4 @@
+import { fetchJson } from "../lib/fetch-json";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getBackendURL, useSession } from "../lib/auth-client";
@@ -54,96 +55,60 @@ const ContestDetail = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [calculatingRatings, setCalculatingRatings] = useState(false);
   const [toast, setToast] = useState(null);
-  const [solvedProblemIds, setSolvedProblemIds] = useState(() => new Set());
+  const currentUserId = session?.user?.id;
+  const myEntry = contest?.participants?.find(participant =>
+    participant.userId === currentUserId || participant.userId?.id === currentUserId || participant.userId?._id === currentUserId
+  );
+  const solvedProblemIds = new Set(currentUserId ? myEntry?.solved?.map(String) : []);
 
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
+  // ─── Data Fetching ──────────────────────────────────────────────────────────
+
+  const fetchContestDetails = useCallback(signal =>
+    fetchJson(getBackendURL() + "/api/contests/" + id, { signal })
+      .then(data => { if (!signal?.aborted) { setContest(data); setError(""); } })
+      .catch(() => { if (!signal?.aborted) setError("Failed to fetch contest details"); }), [id]);
+
+  const fetchLeaderboard = useCallback(signal =>
+    fetchJson(getBackendURL() + "/api/contests/" + id + "/leaderboard", { signal })
+      .then(data => { if (!signal?.aborted) setLeaderboard(data); })
+      .catch(error => { if (!signal?.aborted) console.error("Failed to fetch leaderboard:", error); }), [id]);
+
   const handleRecalculateRatings = async () => {
     try {
       setCalculatingRatings(true);
-      const res = await fetch(`${getBackendURL()}/api/contests/${id}/calculate-ratings`, {
-        method: "POST",
-        credentials: "include"
-      });
-      if (res.ok) {
-        showToast("⚡ ELO Ratings updated and synced!");
-        fetchContestDetails();
-        fetchLeaderboard();
-      } else {
-        showToast("Failed to calculate ELO ratings.");
-      }
+      await fetchJson(`${getBackendURL()}/api/contests/${id}/calculate-ratings`, { method: "POST" });
+      showToast("⚡ ELO Ratings updated and synced!");
+      await Promise.all([fetchContestDetails(), fetchLeaderboard()]);
     } catch (err) {
       console.error("Error rating calculation:", err);
-      showToast("Error calculating ELO ratings.");
+      showToast("Failed to calculate ELO ratings.");
     } finally {
       setCalculatingRatings(false);
     }
   };
 
-  // ─── Data Fetching ──────────────────────────────────────────────────────────
-
-  const fetchContestDetails = useCallback(async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/contests/${id}`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setContest(data);
-
-        // Extract solved problem IDs for current user
-        if (session?.user?.id && data.participants) {
-          const myEntry = data.participants.find(
-            p => p.userId === session.user.id ||
-                 p.userId?._id === session.user.id ||
-                 p.userId?.toString() === session.user.id
-          );
-          if (myEntry?.solved) {
-            setSolvedProblemIds(new Set(myEntry.solved.map(s => s.toString())));
-          }
-        }
-      } else {
-        setError("Failed to fetch contest details");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to connect to server");
-    }
-  }, [id, session]);
-
-  const fetchLeaderboard = useCallback(async () => {
-    try {
-      const response = await fetch(`${getBackendURL()}/api/contests/${id}/leaderboard`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLeaderboard(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [id]);
-
-  const loadData = async () => {
-    setLoading(true);
-    setError("");
-    await Promise.all([fetchContestDetails(), fetchLeaderboard()]);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    Promise.all([fetchContestDetails(controller.signal), fetchLeaderboard(controller.signal)])
+      .then(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [fetchContestDetails, fetchLeaderboard]);
+
+  const contestStatus = contest?.status;
+  useEffect(() => {
+    if (!contestStatus || contestStatus === "Ended") return;
+    const controller = new AbortController();
     const interval = setInterval(() => {
-      if (contest && contest.status === "Ongoing") {
-        fetchLeaderboard();
-      }
+      fetchContestDetails(controller.signal);
+      fetchLeaderboard(controller.signal);
     }, 10000);
-    return () => clearInterval(interval);
-  }, [id, contest?.status]);
+    return () => { clearInterval(interval); controller.abort(); };
+  }, [contestStatus, fetchContestDetails, fetchLeaderboard]);
 
   // Timer logic
   useEffect(() => {
@@ -204,7 +169,7 @@ const ContestDetail = () => {
   };
 
   const handleSolveProblem = (problem) => {
-    const isReg = session && contest.participants.some(p => p.userId === session.user.id || p.userId?._id === session.user.id);
+    const isReg = session && contest.participants.some(p => p.userId === session.user.id || p.userId?.id === session.user.id || p.userId?._id === session.user.id);
     if (!isReg && contest.status === "Ongoing") {
       showToast("Please register for this contest to solve problems");
       return;
@@ -237,7 +202,7 @@ const ContestDetail = () => {
     );
   }
 
-  const isRegistered = session && contest.participants.some(p => p.userId === session.user.id || p.userId?._id === session.user.id);
+  const isRegistered = session && contest.participants.some(p => p.userId === session.user.id || p.userId?.id === session.user.id || p.userId?._id === session.user.id);
   const isEnded = contest.status === "Ended";
   const isOngoing = contest.status === "Ongoing";
 
@@ -447,14 +412,14 @@ const ContestDetail = () => {
                   ) : (
                     leaderboard.map((participant, index) => {
                       const isMe = session && (
-                        participant.userId?._id === session.user.id ||
+                        participant.userId?.id === session.user.id || participant.userId?._id === session.user.id ||
                         participant.userId === session.user.id
                       );
                       const ratingChange = participant.ratingChange;
                       return (
                         <tr key={participant._id || index} className={`border-b border-slate-200 ${isMe ? "bg-emerald-50 font-black" : "hover:bg-slate-50"}`}>
                           <td className="font-black text-sm">
-                            {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}
+                            {participant.rank === 1 ? "🥇" : participant.rank === 2 ? "🥈" : participant.rank === 3 ? "🥉" : participant.rank}
                           </td>
                           <td className="font-bold text-xs uppercase">
                             {participant.userId?.name || "Anonymous"}
@@ -549,4 +514,9 @@ const ContestDetail = () => {
   );
 };
 
-export default ContestDetail;
+const ContestDetailRoute = () => {
+  const { id } = useParams();
+  return <ContestDetail key={id} />;
+};
+
+export default ContestDetailRoute;

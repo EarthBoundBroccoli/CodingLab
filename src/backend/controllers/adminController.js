@@ -24,12 +24,25 @@ export const getProblemRequests = async (req, res) => {
 // @access  Protected (Admin Only)
 export const getPendingSetterRequests = async (req, res) => {
     try {
-        // Fetch all pending requests and populate the requester's name & email
         const requests = await SetterRequest.find({ status: 'pending' })
-            .populate('userId', 'name email')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 }).lean();
+        const ids = [...new Set(requests.map(request => request.userId).filter(id => typeof id === 'string' && id))];
+        const users = ids.length ? await User.find({ $or: [
+            { id: { $in: ids } },
+            { _id: { $in: ids.filter(id => mongoose.isObjectIdOrHexString(id)) } },
+        ] }).select('_id id name email').lean() : [];
+        const byAuthId = new Map(users.filter(user => typeof user.id === 'string').map(user => [user.id, user]));
+        const byDatabaseId = new Map(users.map(user => [String(user._id), user]));
 
-        res.json(requests);
+        res.set('Cache-Control', 'no-store');
+        res.json(requests.map(request => {
+            // Prefer the explicit auth identity when it differs from MongoDB's ID.
+            const user = byAuthId.get(request.userId) || byDatabaseId.get(request.userId?.toLowerCase());
+            return {
+                ...request, applicantId: request.userId, accountMissing: !user,
+                userId: user ? { _id: user._id, name: user.name, email: user.email } : null,
+            };
+        }));
     } catch (error) {
         console.error('Error fetching pending setter requests:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -56,7 +69,10 @@ export const decideSetterRequest = async (req, res) => {
         const request = await SetterRequest.db.transaction(async session => {
             // A conditional write prevents concurrent admins from deciding twice.
             const decided = await SetterRequest.findOneAndUpdate(
-                { _id: id, status: 'pending' }, { $set: { status } }, { new: true, session }
+                { _id: id, status: 'pending' }, { $set: {
+                    status, decisionReason: status === 'rejected' ? reason?.trim() || 'No reason specified.' : '',
+                    decidedAt: new Date(), decidedBy: req.user?.id || null,
+                } }, { new: true, session }
             );
             if (!decided) {
                 const existing = await SetterRequest.findById(id).session(session);

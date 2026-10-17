@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { signUp, signIn } from "../lib/auth-client";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -80,7 +80,7 @@ const Auth = () => {
             // Hard refresh to clear any state and land clean on home page
             window.location.href = "/";
             
-        } catch (err) {
+        } catch {
             setError("A network error occurred. Please try again.");
             setLoading(false);
         }
@@ -93,7 +93,7 @@ const Auth = () => {
                 provider: provider,
                 callbackURL: window.location.origin + "/",
             });
-        } catch (err) {
+        } catch {
             setError(`Failed to connect with ${provider}.`);
             setLoading(false);
         }

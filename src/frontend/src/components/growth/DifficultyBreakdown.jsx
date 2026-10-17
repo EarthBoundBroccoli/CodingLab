@@ -1,28 +1,18 @@
 const DifficultyBreakdown = ({ stats }) => (
-  <section className="bg-white neo-brutal overflow-hidden">
-    <div className="bg-white px-5 py-4 border-b-2 border-black"><h2 className="text-xl font-black uppercase font-spartan tracking-tight">Practice by difficulty</h2></div>
-  <div className="p-5 space-y-4">
-    <p className="text-xs text-slate-500">Lifetime problem totals. Completion = solved / attempted.</p>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b-2 border-black uppercase text-[10px]"><tr><th className="py-3">Difficulty</th><th>Solved</th><th>Attempted</th><th>Completion</th></tr></thead>
-        <tbody>
-          {[['easy', 'Easy', 'bg-emerald-400'], ['medium', 'Medium', 'bg-amber-400'], ['hard', 'Hard', 'bg-red-400']].map(([key, label, color]) => {
-            const data = stats.difficultyStats?.[key] || { solved: 0, attempted: 0 };
-            const rate = data.attempted ? Math.round(data.solved / data.attempted * 100) : null;
-            return <tr key={key} className="border-b border-slate-200">
-              <th className="py-4">{label}</th><td>{data.solved}</td><td>{data.attempted}</td>
-              <td className="py-4 min-w-28">
-                <span>{rate === null ? "Not attempted" : `${rate}%`}</span>
-                <div className="h-2 bg-slate-100 mt-1" aria-hidden="true"><div className={`h-full ${color}`} style={{ width: `${rate ?? 0}%` }} /></div>
-              </td>
-            </tr>;
-          })}
-        </tbody>
-      </table>
+  <section className="growth-panel growth-difficulty">
+    <header className="growth-panel-heading"><div><h2>Problem completion</h2><p>Solved out of attempted, all time</p></div></header>
+    <div className="growth-difficulty-list">
+      {[['easy', 'Easy', '#10b981'], ['medium', 'Medium', '#0284c7'], ['hard', 'Hard', '#7c3aed']].map(([key, label, color]) => {
+        const data = stats.difficultyStats?.[key] || { solved: 0, attempted: 0 };
+        const rate = data.attempted ? Math.round(data.solved / data.attempted * 100) : null;
+        return <div key={key} className="growth-difficulty-row">
+          <div><span>{label}</span><strong>{data.solved}<span> / {data.attempted}</span></strong></div>
+          <div className="growth-progress-track" role="img" aria-label={`${label}: ${data.solved} solved out of ${data.attempted} attempted`}><span style={{ width: `${Math.min(rate ?? 0, 100)}%`, backgroundColor: color }} /></div>
+          <p>{rate === null ? 'Not attempted yet' : `${rate}% completed`}</p>
+        </div>;
+      })}
     </div>
-    <p className="text-xs font-bold">{stats.totalSolved ?? 0} problems solved across {stats.totalAttempted ?? 0} attempted.</p>
-  </div>
+    <p className="growth-panel-footnote">Attempts count distinct problems, including those still unsolved.</p>
   </section>
 );
 export default DifficultyBreakdown;

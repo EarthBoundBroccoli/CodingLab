@@ -1,8 +1,9 @@
 import HomeContests from "../components/HomeContests";
+import HomePracticePreview from "../components/HomePracticePreview";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSession, getBackendURL } from "../lib/auth-client";
-import { Target, Award, Zap, Loader2, TrendingUp } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const LandingPage = () => {
   const { data: session, isPending } = useSession();
@@ -11,25 +12,16 @@ const LandingPage = () => {
   const [problems, setProblems] = useState([]);
   const [loadingProblems, setLoadingProblems] = useState(true);
   const [studentStats, setStudentStats] = useState(null);
-  const [userStats, setUserStats] = useState(null);
 
   // Fetch stats if session exists
   useEffect(() => {
     const fetchAllStats = async () => {
       if (!session) return;
       try {
-        const [profileRes, userRes] = await Promise.all([
-          fetch(`${getBackendURL()}/api/submissions/profile-stats`, { credentials: "include" }),
-          fetch(`${getBackendURL()}/api/submissions/user-stats`, { credentials: "include" })
-        ]);
-        
+        const profileRes = await fetch(`${getBackendURL()}/api/submissions/profile-stats`, { credentials: "include" });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           setStudentStats(profileData);
-        }
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUserStats(userData);
         }
       } catch (err) {
         console.error("Error loading stats on landing page:", err);
@@ -192,44 +184,7 @@ const LandingPage = () => {
           
           <HomeContests linkFor={getRedirectPath} />
 
-          {/* Growth Stats Card */}
-          <div className="bg-white neo-brutal rounded-none overflow-hidden">
-            <div className="bg-amber-400 p-4 border-b-4 border-black">
-              <h2 className="text-2xl font-black uppercase text-black font-spartan tracking-tight text-center">Growth Stats</h2>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                  {/* Success Rate */}
-                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-emerald-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
-                      <Target size={24} className="text-emerald-500 mb-1 group-hover:scale-110 transition-transform" />
-                      <span className="text-2xl font-black text-black">{userStats ? `${userStats.successRate}%` : "0%"}</span>
-                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Success Rate</span>
-                  </div>
-
-                  {/* Practice XP */}
-                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-amber-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
-                      <Zap size={24} className="text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
-                      <span className="text-2xl font-black text-black">{userStats ? userStats.points : 0}</span>
-                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Practice XP</span>
-                  </div>
-
-                  {/* Contest Rating */}
-                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-sky-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
-                      <TrendingUp size={24} className="text-sky-500 mb-1 group-hover:scale-110 transition-transform" />
-                      <span className="text-2xl font-black text-black">{userStats ? userStats.contestRating : 0}</span>
-                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Contest Rating</span>
-                  </div>
-
-                  {/* Campus Rank */}
-                  <div className="bg-white border-2 border-black p-4 flex flex-col items-center justify-center text-center space-y-1 group hover:bg-amber-50 transition-colors shadow-[2px_2px_0px_0px_black] cursor-default">
-                      <Award size={24} className="text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
-                      <span className="text-2xl font-black text-black">#12</span>
-                      <span className="font-black uppercase text-[9px] tracking-widest opacity-50 text-black">Campus Rank</span>
-                  </div>
-              </div>
-              <Link to={getRedirectPath("/growth")} className="btn bg-slate-900 text-white border-2 border-black rounded-none font-black uppercase w-full mt-2 hover:bg-emerald-400 hover:text-black cursor-pointer shadow-[4px_4px_0px_0px_black] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">View Full Dashboard</Link>
-            </div>
-          </div>
+          <HomePracticePreview userId={session?.user?.id} />
 
         </div>
 

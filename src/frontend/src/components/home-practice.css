@@ -1,0 +1,32 @@
+.home-practice-preview { color: #111827; }
+.home-practice-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 20px; background: #34d399; border-bottom: 3px solid #111; }
+.home-practice-heading h2 { font: 800 25px/1.1 'League Spartan', sans-serif; text-transform: uppercase; }
+.home-practice-heading p { font-size: 12px; margin-top: 5px; }
+.home-practice-heading > svg { flex-shrink: 0; }
+.home-practice-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.home-practice-metric { padding: 12px 14px; border: 2px solid #111; box-shadow: 2px 2px 0 #111; min-width: 0; }
+.home-practice-metric-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 9px; }
+.home-practice-metric-top > span:last-child { font-size: 10px; color: #64748b; }
+.home-practice-icon { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid currentColor; }
+.home-practice-blue { background: #e0f2fe; color: #0369a1; }
+.home-practice-green { background: #d1fae5; color: #047857; }
+.home-practice-amber { background: #fef3c7; color: #92400e; }
+.home-practice-purple { background: #ede9fe; color: #6d28d9; }
+.home-practice-metric > strong { display: block; font: 800 32px/1 'League Spartan', sans-serif; font-variant-numeric: tabular-nums; }
+.home-practice-metric strong small { font-size: 16px; color: #64748b; font-weight: 500; }
+.home-practice-metric h3 { font-size: 12px; font-weight: 750; margin-top: 6px; }
+.home-practice-metric p { font-size: 10px; line-height: 1.5; color: #64748b; margin-top: 3px; }
+.home-practice-week { margin-top: 22px; padding-top: 15px; border-top: 1px solid #cbd5e1; }
+.home-practice-week-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.home-practice-week-heading h3 { font-size: 12px; font-weight: 750; }
+.home-practice-week-heading > span { font-size: 10px; color: #64748b; }
+.home-practice-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 13px; text-align: center; }
+.home-practice-days > div > span { font-size: 10px; color: #64748b; }
+.home-practice-day { display: grid; place-items: center; max-width: 40px; height: 32px; margin: 5px auto 3px; border: 1px solid #cbd5e1; background: #f8fafc; color: #94a3b8; }
+.home-practice-day.is-active { background: #d1fae5; color: #065f46; border-color: #059669; }
+.home-practice-days small { display: block; font-size: 9px; color: #64748b; }
+@media (max-width: 420px) {
+  .home-practice-metric { padding: 10px; }
+  .home-practice-metric-top { flex-wrap: wrap; }
+  .home-practice-days { gap: 5px; }
+}

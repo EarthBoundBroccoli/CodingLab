@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { getBackendURL, useSession, authClient } from "../lib/auth-client";
 import { readEditorPreferences } from "../lib/editor-preferences";
 import { 
-  User as UserIcon, Code2, Shield, Building, Save, CheckCircle2, AlertCircle
+  User as UserIcon, Code2, Shield, Building, Save
 } from "lucide-react";
 
 const Settings = () => {
-  const navigate = useNavigate();
   const { data: session } = useSession();
 
   const [activeTab, setActiveTab] = useState("profile");
@@ -76,7 +74,9 @@ const Settings = () => {
         if (authClient?.updateUser) {
           await authClient.updateUser({ image, name });
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Profile saved, but the auth profile refresh failed:", err);
+      }
 
       showToast("✓ Avatar DP & Settings Saved!");
       setTimeout(() => {

@@ -1,0 +1,43 @@
+.navbar-brand {
+  display: block;
+  flex-shrink: 0;
+  width: 132px;
+  height: 64px;
+  overflow: hidden;
+  transition: opacity 150ms ease;
+}
+
+.navbar-brand:hover {
+  opacity: 0.7;
+}
+
+.navbar-brand:focus-visible {
+  outline: 3px solid var(--color-emerald-400);
+  outline-offset: 4px;
+}
+
+.navbar-brand-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 48%;
+  /* Frame the artwork inside the source's square canvas and match the white navbar. */
+  transform: scale(1.28);
+  filter: grayscale(1) invert(1);
+}
+
+@media (max-width: 639px) {
+  .navbar-account-actions > a:first-child > button {
+    max-width: 160px;
+    padding-inline: 8px;
+    white-space: normal;
+  }
+}
+
+@media (min-width: 640px) {
+  .navbar-brand {
+    width: 148px;
+    height: 72px;
+  }
+}

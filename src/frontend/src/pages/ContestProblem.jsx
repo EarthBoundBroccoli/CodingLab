@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { Group, Panel, Separator } from "react-resizable-panels";
@@ -6,7 +6,7 @@ import axios from "axios";
 import { getBackendURL, useSession } from "../lib/auth-client";
 import { renderMarkdown } from "../lib/markdown";
 import { readEditorPreferences, registerEditorThemes } from "../lib/editor-preferences";
-import { Loader2, AlertCircle, Play, Send, ChevronLeft, Trophy, Clock } from "lucide-react";
+import { Loader2, AlertCircle, Play, Send, ChevronLeft, Clock } from "lucide-react";
 
 const badgeForDifficulty = (difficulty) => {
   if (difficulty === "Easy") return "bg-emerald-300";
@@ -45,7 +45,6 @@ const ContestProblem = () => {
   const [editorPreferences] = useState(() => readEditorPreferences());
   const [language, setLanguage] = useState(editorPreferences.language);
   const [codeValue, setCodeValue] = useState(() => boilerplates[language]);
-  const prevLanguage = useRef(language);
 
   // Console execution states
   const [activeTab, setActiveTab] = useState("input");
@@ -55,15 +54,13 @@ const ContestProblem = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isRunningSandbox, setIsRunningSandbox] = useState(false);
 
-  // Sync boilerplate when language is toggled
-  useEffect(() => {
-    if (prevLanguage.current !== language) {
-      if (boilerplates[language]) {
-        setCodeValue(boilerplates[language]);
-      }
-      prevLanguage.current = language;
+  const handleLanguageChange = event => {
+    const nextLanguage = event.target.value;
+    if (nextLanguage !== language && boilerplates[nextLanguage]) {
+      setLanguage(nextLanguage);
+      setCodeValue(boilerplates[nextLanguage]);
     }
-  }, [language]);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -206,6 +203,10 @@ const ContestProblem = () => {
 
         if (evaluationVerdict === "AC" || verdict === "Accepted") {
           setSubmissionStatus("AC");
+        } else if (evaluationVerdict === "MLE") {
+          setSubmissionStatus("MLE");
+        } else if (evaluationVerdict === "RE") {
+          setSubmissionStatus("RE");
         } else {
           setSubmissionStatus("WA");
         }
@@ -269,6 +270,8 @@ const ContestProblem = () => {
             <div className={`space-y-3 transition-all duration-300 ${
               submissionStatus === 'AC' ? 'bg-emerald-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
               submissionStatus === 'WA' ? 'bg-rose-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
+              submissionStatus === 'MLE' ? 'bg-rose-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
+              submissionStatus === 'RE' ? 'bg-rose-400 p-4 border-4 border-black shadow-[4px_4px_0px_0px_black] mb-4' :
               'bg-white'
             }`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -302,6 +305,12 @@ const ContestProblem = () => {
                   <span className="badge rounded-none border-2 border-black bg-slate-200 text-black font-black uppercase text-xs px-2.5 py-1.5 shadow-[2px_2px_0px_0px_black]">
                     UNSOLVED
                   </span>
+                )}
+                {submissionStatus === 'MLE' && (
+                  <span className="badge rounded-none border-2 border-black bg-white text-black font-black uppercase text-xs px-2.5 py-1.5 shadow-[2px_2px_0px_0px_black]">Memory Limit Exceeded</span>
+                )}
+                {submissionStatus === 'RE' && (
+                  <span className="badge rounded-none border-2 border-black bg-white text-black font-black uppercase text-xs px-2.5 py-1.5 shadow-[2px_2px_0px_0px_black]">Runtime Error</span>
                 )}
 
                 <span className={`badge rounded-none border-2 border-black font-black uppercase text-xs text-black px-2 py-1 ${badgeForDifficulty(problem.difficulty)}`}>
@@ -522,7 +531,7 @@ const ContestProblem = () => {
           <select
             id="language-select"
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            onChange={handleLanguageChange}
             className="p-2 border-4 border-black bg-white font-black uppercase text-xs sm:text-sm outline-none select-none rounded-none focus:bg-emerald-400 focus:text-black cursor-pointer transition-colors text-black"
           >
             <option value="cpp">C++ (GCC 20)</option>

@@ -1,8 +1,11 @@
 import { User } from '../models/User.js';
 import { StudentStats } from '../models/StudentStats.js';
+import { Contest } from '../models/Contest.js';
+import { INITIAL_RATING } from './eloCalculator.js';
+export { INITIAL_RATING } from './eloCalculator.js';
 
 export const LEADERBOARD_ROLES = ['student', 'problem_setter'];
-export const INITIAL_RATING = 1000;
+export const activeLeaderboardFilter = () => ({ role: { $in: LEADERBOARD_ROLES }, banned: { $ne: true }, disabledAt: null });
 
 export function parseLeaderboardPagination(query, defaultLimit) {
     const page = query.page === undefined ? 1 : Number(query.page);
@@ -47,9 +50,29 @@ export const ratingStages = () => [
     { $addFields: { contestRating: { $ifNull: ['$stats.contestRating', INITIAL_RATING] } } },
 ];
 
+// A default rating or a standalone history entry is not proof of competition.
+// Require a finalized contest with a recorded rating for this participant.
+export const ratedEligibilityStages = () => [
+    { $lookup: {
+        from: 'contests',
+        let: { authId: '$authUserId', databaseId: { $toString: '$_id' } },
+        pipeline: [
+            { $match: { status: 'Ended', ratingsCalculated: true, $expr: { $gt: [
+                { $size: { $filter: { input: { $ifNull: ['$participants', []] }, as: 'participant', cond: { $and: [
+                    { $in: ['$$participant.userId', ['$$authId', '$$databaseId']] },
+                    { $isNumber: '$$participant.newRating' },
+                ] } } } }, 0,
+            ] } } },
+            { $limit: 1 }, { $project: { _id: 1 } },
+        ], as: 'ratedResults',
+    } },
+    { $match: { 'ratedResults.0': { $exists: true }, 'stats.contestRating': { $type: 'number' } } },
+];
+
 export const universityLeaderboardPipeline = () => [
-    { $match: { role: { $in: LEADERBOARD_ROLES }, university: { $ne: null } } },
+    { $match: { ...activeLeaderboardFilter(), university: { $ne: null } } },
     ...ratingStages(),
+    ...ratedEligibilityStages(),
     { $sort: { contestRating: -1, _id: 1 } },
     { $group: { _id: '$university', ratings: { $push: '$contestRating' }, totalStudents: { $sum: 1 } } },
     { $project: { totalRating: { $sum: { $slice: ['$ratings', 10] } }, totalStudents: 1 } },
@@ -69,14 +92,20 @@ export async function getUserLeaderboardStats(user) {
     const maxRating = (stats?.ratingHistory || []).reduce((peak, entry) => Math.max(
         peak, entry.oldRating ?? rating, entry.newRating ?? rating
     ), Math.max(rating, stats?.maxRating ?? rating));
-    return { stats, rating, maxRating };
+    const identities = [...new Set([primaryId, user._id && String(user._id)].filter(Boolean))];
+    const isRated = !!(stats && Number.isFinite(stats.contestRating) && await Contest.exists({
+        status: 'Ended', ratingsCalculated: true,
+        participants: { $elemMatch: { userId: { $in: identities }, newRating: { $type: 'number' } } },
+    }));
+    return { stats, rating, maxRating, isRated };
 }
 
-export async function getUserCampusRank(user, rating) {
-    if (!user.university || !LEADERBOARD_ROLES.includes(user.role)) return null;
+export async function getUserCampusRank(user, rating, isRated = false) {
+    if (!isRated || !user.university || !LEADERBOARD_ROLES.includes(user.role) || user.banned || user.disabledAt) return null;
     const counts = await User.aggregate([
-        { $match: { university: user.university._id || user.university, role: { $in: LEADERBOARD_ROLES } } },
+        { $match: { university: user.university._id || user.university, ...activeLeaderboardFilter() } },
         ...ratingStages(),
+        ...ratedEligibilityStages(),
         { $match: { contestRating: { $gt: rating } } },
         { $count: 'higherRanked' },
     ]);

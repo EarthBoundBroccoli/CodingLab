@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useSession, signOut, getBackendURL } from "../lib/auth-client";
 import { Bell } from "lucide-react";
 import { fetchNotifications, NOTIFICATIONS_CHANGED } from "../lib/notifications";
+import codingLabLogo from "../assets/CodingLabLogo.png";
+import "./navbar.css";
 
 const Navbar = () => {
   const { data: session } = useSession();
@@ -57,11 +59,16 @@ const Navbar = () => {
   const isActive = (path) => path && (location.pathname === path || (path !== "/" && location.pathname.startsWith(path)));
 
   return (
-    <div className="navbar bg-white px-4 lg:px-8 border-b-4 border-black">
+    <div className="navbar flex-wrap gap-y-3 bg-white px-4 lg:px-8 border-b-4 border-black">
       {/* Brand */}
-      <div className="flex-1 gap-8 flex items-center">
-        <Link to="/" className="text-4xl font-black text-black tracking-tighter font-spartan hover:text-emerald-400 transition-all duration-300 active:scale-95">
-          CodingLab
+      <div className="flex-1 gap-4 lg:gap-8 flex items-center">
+        <Link
+          to="/"
+          aria-label="CodingLab home"
+          className="navbar-brand"
+          onClick={() => window.scrollTo({ top: 0, left: 0, behavior: "instant" })}
+        >
+          <img src={codingLabLogo} alt="CodingLab" width="2000" height="2000" className="navbar-brand-logo" />
         </Link>
 
         {/* Navigation Links */}
@@ -92,10 +99,10 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Right Side: Action Buttons, Profile & Logo Placeholder */}
+      {/* Right Side: Action Buttons & Profile */}
       <div className="flex-none gap-4 md:gap-8 flex items-center">
         {session && (
-            <div className="flex items-center gap-4">
+            <div className="navbar-account-actions flex items-center gap-2 sm:gap-4">
                 {/* Become a Problem Setter or Add Problems Button */}
                 {session.user.role === "student" && (
                     <Link to="/become-setter">
@@ -166,10 +173,6 @@ const Navbar = () => {
             </div>
         )}
 
-        {/* Logo Placeholder */}
-        <div className="bg-slate-200 border-2 border-black p-2 font-black text-[10px] md:text-xs uppercase text-center w-20 md:w-24 leading-tight">
-          Logo<br/>placeholder
-        </div>
       </div>
     </div>
   );

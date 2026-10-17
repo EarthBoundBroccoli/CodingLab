@@ -6,6 +6,8 @@ import { Submission } from "../models/Submission.js";
 import { auth } from "../lib/auth.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
 import { buildSubmissionActivity } from "../utils/submissionActivity.js";
+import { withSubmissionTransaction } from "../utils/submissionPersistence.js";
+import { wrapCpp, wrapPython, wrapJava, createRuntimeMarker, readRuntimeFailure, readCompilationFailure } from "../utils/judgingRuntime.js";
 
 // Helper function to fetch content from Cloudinary URL if needed
 const fetchIfNeeded = async (urlOrContent) => {
@@ -20,155 +22,6 @@ const fetchIfNeeded = async (urlOrContent) => {
     }
   }
   return urlOrContent;
-};
-
-const wrapCpp = (studentCode) => {
-  const usesArgc = /\bmain\s*\(\s*int\b/.test(studentCode);
-  
-  const dummyDefinition = usesArgc 
-    ? "int user_main() { return 0; }" 
-    : "int user_main(int argc, char** argv) { return 0; }";
-
-  return `
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <vector>
-
-// Dummy for the signature NOT used by the student
-${dummyDefinition}
-
-#define main user_main
-${studentCode}
-#undef main
-
-int main() {
-    std::string all_input;
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        all_input += line + "\\n";
-    }
-    
-    std::vector<std::string> inputs;
-    std::string delimiter = "///";
-    size_t pos = 0;
-    while ((pos = all_input.find(delimiter)) != std::string::npos) {
-        inputs.push_back(all_input.substr(0, pos));
-        all_input.erase(0, pos + delimiter.length());
-    }
-    inputs.push_back(all_input);
-    
-    std::streambuf* orig_cin = std::cin.rdbuf();
-    
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        if (i > 0) {
-            std::cout << "///\\n";
-        }
-        
-        std::istringstream iss(inputs[i]);
-        std::cin.rdbuf(iss.rdbuf());
-        
-        // Execute student code
-        user_main();
-        user_main(0, nullptr);
-        
-        std::cin.clear();
-    }
-    
-    std::cin.rdbuf(orig_cin);
-    return 0;
-}
-`;
-};
-
-// Python code wrapper
-const wrapPython = (studentCode) => {
-  return `
-import sys
-import io
-
-student_raw_code = ${JSON.stringify(studentCode)}
-
-# Intercept the massive batched stream string
-full_input = sys.stdin.read()
-test_cases = full_input.split('///')
-
-original_stdout = sys.stdout
-original_stdin = sys.stdin
-
-for i, case in enumerate(test_cases):
-    if i > 0:
-        original_stdout.write('///\\n')
-        original_stdout.flush()
-    
-    # Reset virtual streams for this specific test block
-    sys.stdin = io.StringIO(case.strip())
-    captured_output = io.StringIO()
-    sys.stdout = captured_output
-    
-    try:
-        # Run code globally with __name__ properly initialized to "__main__"
-        exec(student_raw_code, {"__name__": "__main__", "__builtins__": __builtins__})
-    except SystemExit:
-        pass
-    except Exception as e:
-        captured_output.write(str(e) + '\\n')
-        
-    sys.stdout = original_stdout
-    original_stdout.write(captured_output.getvalue())
-    original_stdout.flush()
-`;
-};
-
-// Java code wrapper
-const wrapJava = (studentCode) => {
-  // Find the class containing main
-  const classMatch = studentCode.match(/(?:public\s+)?class\s+(\w+)/);
-  const className = classMatch ? classMatch[1] : "Main";
-  
-  let modifiedStudentCode = studentCode;
-  if (classMatch) {
-    modifiedStudentCode = modifiedStudentCode.replace(/public\s+class\s+/, "class ");
-  }
-  
-  modifiedStudentCode = modifiedStudentCode.replace(/public\s+static\s+void\s+main\s*\(/, "public static void studentMain(");
-  
-  return `
-import java.io.*;
-import java.util.*;
-
-${modifiedStudentCode}
-
-public class JDoodleWrapper {
-    public static void main(String[] args) throws Exception {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            sb.append(line).append("\\n");
-        }
-        String[] inputs = sb.toString().split("///", -1);
-        
-        InputStream origIn = System.in;
-        PrintStream origOut = System.out;
-        
-        for (int i = 0; i < inputs.length; i++) {
-            if (i > 0) {
-                origOut.println("///");
-            }
-            
-            System.setIn(new ByteArrayInputStream(inputs[i].getBytes()));
-            
-            try {
-                ${className}.studentMain(new String[0]);
-            } catch (Throwable t) {
-                t.printStackTrace(origOut);
-            }
-        }
-        System.setIn(origIn);
-    }
-}
-`;
 };
 
 // @desc    Submit problem solution for evaluation
@@ -219,13 +72,14 @@ export const submitProblemSolution = async (req, res) => {
     const combinedInput = inputsArray.join('\n///\n');
 
     // Wrap the code according to language
+    const runtimeMarker = createRuntimeMarker();
     let wrappedCode = code;
     if (language === 'cpp') {
-      wrappedCode = wrapCpp(code);
+      wrappedCode = wrapCpp(code, runtimeMarker);
     } else if (language === 'python') {
-      wrappedCode = wrapPython(code);
+      wrappedCode = wrapPython(code, runtimeMarker);
     } else if (language === 'java') {
-      wrappedCode = wrapJava(code);
+      wrappedCode = wrapJava(code, runtimeMarker);
     }
 
     // JDoodle Configuration
@@ -258,15 +112,29 @@ export const submitProblemSolution = async (req, res) => {
 
     const jdoodleOutput = response.data.output || "";
     const statusCode = response.data.statusCode;
+    const runtimeOutput = readRuntimeFailure(response.data, runtimeMarker);
+    const compilationOutput = readCompilationFailure(response.data, runtimeMarker);
     const cpuTime = response.data.cpuTime;
-    const memory = response.data.memory;
+    const reportedMemory = response.data.memory;
+    const memory = Number(reportedMemory);
+    const hasMemory = (typeof reportedMemory === 'number' || (typeof reportedMemory === 'string' && reportedMemory.trim() !== ''))
+      && Number.isFinite(memory) && memory >= 0;
+    if ((statusCode === 0 || statusCode === 200) && !hasMemory && !runtimeOutput && !compilationOutput) {
+      throw new Error('Execution service did not report valid memory usage. Please retry.');
+    }
 
     // Check for Time Limit Exceeded (TLE)
     const cpuTimeMs = parseFloat(cpuTime) * 1000;
     
     let evaluationVerdict = '';
-    if (cpuTimeMs > timeLimit) {
+    if (compilationOutput || (statusCode !== 0 && statusCode !== 200)) {
+      evaluationVerdict = 'CE';
+    } else if (cpuTimeMs > timeLimit) {
       evaluationVerdict = 'TLE';
+    } else if (hasMemory && memory > memoryLimit * 1024) {
+      evaluationVerdict = 'MLE';
+    } else if (runtimeOutput) {
+      evaluationVerdict = 'RE';
     } else {
       // Split JDoodle's output block back down using our delimiter
       const actualOutputs = jdoodleOutput.trim().split(splitDelimiter);
@@ -293,6 +161,12 @@ export const submitProblemSolution = async (req, res) => {
       dbVerdict = 'Accepted';
     } else if (evaluationVerdict === 'TLE') {
       dbVerdict = 'Time Limit Exceeded';
+    } else if (evaluationVerdict === 'MLE') {
+      dbVerdict = 'Memory Limit Exceeded';
+    } else if (evaluationVerdict === 'RE') {
+      dbVerdict = 'Runtime Error';
+    } else if (evaluationVerdict === 'CE') {
+      dbVerdict = 'Compilation Error';
     } else {
       if (statusCode !== 0 && statusCode !== 200) {
         dbVerdict = 'Compilation Error';
@@ -302,99 +176,101 @@ export const submitProblemSolution = async (req, res) => {
     }
 
     // 3. User statistics update mutation
-    let stats = await StudentStats.findOne({ userId });
-    if (!stats) {
-      stats = new StudentStats({ userId });
-    }
-
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    if (evaluationVerdict === 'AC') {
-      // Solved problem handling (ensure uniqueness)
-      const alreadySolved = stats.solvedProblems.some(id => id.toString() === problemId.toString());
-      if (!alreadySolved) {
-        stats.solvedProblems.push(problemId);
-        
-        // Difficulty breakdown increment
-        const diffKey = problem.difficulty.toLowerCase();
-        if (stats.difficultyBreakdown[diffKey] !== undefined) {
-          stats.difficultyBreakdown[diffKey] += 1;
-        }
-
-        // Award Practice XP Points based on difficulty
-        if (diffKey === 'easy') {
-          stats.points = (stats.points || 0) + 10;
-        } else if (diffKey === 'medium') {
-          stats.points = (stats.points || 0) + 30;
-        } else if (diffKey === 'hard') {
-          stats.points = (stats.points || 0) + 50;
-        }
+    await withSubmissionTransaction(async session => {
+      let stats = await StudentStats.findOne({ userId }).session(session);
+      if (!stats) {
+        stats = new StudentStats({ userId });
       }
 
-      // Pull from attempted problems
-      stats.attemptedProblems = stats.attemptedProblems.filter(id => id.toString() !== problemId.toString());
+      const todayStr = new Date().toISOString().split('T')[0];
 
-      // Calculate streak
-      if (!stats.lastActiveDate) {
-        stats.currentStreak = 1;
-        stats.longestStreak = Math.max(stats.longestStreak || 0, 1);
-      } else if (stats.lastActiveDate === todayStr) {
-        // Streak remains same, already active today
-      } else {
-        const lastDate = new Date(stats.lastActiveDate);
-        const todayDate = new Date(todayStr);
-        const diffTime = Math.abs(todayDate - lastDate);
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 1) {
-          stats.currentStreak += 1;
-        } else {
+      if (evaluationVerdict === 'AC') {
+        // Solved problem handling (ensure uniqueness)
+        const alreadySolved = stats.solvedProblems.some(id => id.toString() === problemId.toString());
+        if (!alreadySolved) {
+          stats.solvedProblems.push(problemId);
+
+          // Difficulty breakdown increment
+          const diffKey = problem.difficulty.toLowerCase();
+          if (stats.difficultyBreakdown[diffKey] !== undefined) {
+            stats.difficultyBreakdown[diffKey] += 1;
+          }
+
+          // Award Practice XP Points based on difficulty
+          if (diffKey === 'easy') {
+            stats.points = (stats.points || 0) + 10;
+          } else if (diffKey === 'medium') {
+            stats.points = (stats.points || 0) + 30;
+          } else if (diffKey === 'hard') {
+            stats.points = (stats.points || 0) + 50;
+          }
+        }
+
+        // Pull from attempted problems
+        stats.attemptedProblems = stats.attemptedProblems.filter(id => id.toString() !== problemId.toString());
+
+        // Calculate streak
+        if (!stats.lastActiveDate) {
           stats.currentStreak = 1;
+          stats.longestStreak = Math.max(stats.longestStreak || 0, 1);
+        } else if (stats.lastActiveDate === todayStr) {
+          // Streak remains same, already active today
+        } else {
+          const lastDate = new Date(stats.lastActiveDate);
+          const todayDate = new Date(todayStr);
+          const diffTime = Math.abs(todayDate - lastDate);
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays === 1) {
+            stats.currentStreak += 1;
+          } else {
+            stats.currentStreak = 1;
+          }
+          stats.longestStreak = Math.max(stats.longestStreak || 0, stats.currentStreak);
         }
-        stats.longestStreak = Math.max(stats.longestStreak || 0, stats.currentStreak);
-      }
-      stats.lastActiveDate = todayStr;
+        stats.lastActiveDate = todayStr;
 
-      // Update activity history timeline map
-      const historyIndex = stats.activityHistory.findIndex(entry => entry.date === todayStr);
-      if (historyIndex !== -1) {
-        stats.activityHistory[historyIndex].count += 1;
+        // Update activity history timeline map
+        const historyIndex = stats.activityHistory.findIndex(entry => entry.date === todayStr);
+        if (historyIndex !== -1) {
+          stats.activityHistory[historyIndex].count += 1;
+        } else {
+          stats.activityHistory.push({ date: todayStr, count: 1 });
+        }
       } else {
-        stats.activityHistory.push({ date: todayStr, count: 1 });
+        // WA or TLE (or compilation error which we treat similarly for attempted tracking)
+        const alreadySolved = stats.solvedProblems.some(id => id.toString() === problemId.toString());
+        const alreadyAttempted = stats.attemptedProblems.some(id => id.toString() === problemId.toString());
+        if (!alreadySolved && !alreadyAttempted) {
+          stats.attemptedProblems.push(problemId);
+        }
       }
-    } else {
-      // WA or TLE (or compilation error which we treat similarly for attempted tracking)
-      const alreadySolved = stats.solvedProblems.some(id => id.toString() === problemId.toString());
-      const alreadyAttempted = stats.attemptedProblems.some(id => id.toString() === problemId.toString());
-      if (!alreadySolved && !alreadyAttempted) {
-        stats.attemptedProblems.push(problemId);
-      }
-    }
 
-    // Increment overall submissions count across all execution paths
-    stats.totalSubmissionsCount = (stats.totalSubmissionsCount || 0) + 1;
-    await stats.save();
+      // Increment overall submissions count across all execution paths
+      stats.totalSubmissionsCount = (stats.totalSubmissionsCount || 0) + 1;
+      await stats.save({ session });
 
-    // Create and save submission document
-    const newSubmission = new Submission({
-      problemId,
-      userId,
-      code,
-      language,
-      verdict: dbVerdict,
-      timeTaken: Math.round(cpuTimeMs) || 0,
-      memoryUsed: memory || 0,
-      compileOutput: dbVerdict === 'Compilation Error' ? jdoodleOutput : ""
+      // Create and save submission document
+      const newSubmission = new Submission({
+        problemId,
+        userId,
+        code,
+        language,
+        verdict: dbVerdict,
+        timeTaken: Math.round(cpuTimeMs) || 0,
+        memoryUsed: hasMemory ? memory : 0,
+        compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : ""
+      });
+      await newSubmission.save({ session });
     });
-    await newSubmission.save();
 
     return res.status(200).json({
       message: "Submission evaluated successfully",
       verdict: dbVerdict,
-      evaluationVerdict, // 'AC', 'WA', 'TLE' for simple frontend flags if needed
+      evaluationVerdict, // 'AC', 'WA', 'TLE', or 'MLE' for frontend status badges
       timeTaken: Math.round(cpuTimeMs) || 0,
-      memoryUsed: memory || 0,
-      compileOutput: dbVerdict === 'Compilation Error' ? jdoodleOutput : "",
+      memoryUsed: hasMemory ? memory : 0,
+      compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : "",
       jdoodleOutput: jdoodleOutput
     });
   } catch (error) {

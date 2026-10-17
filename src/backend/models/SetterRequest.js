@@ -30,6 +30,9 @@ const setterRequestSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  decisionReason: { type: String, default: '' },
+  decidedAt: { type: Date, default: null },
+  decidedBy: { type: String, default: null },
   status: { 
     type: String, 
     enum: ['pending', 'accepted', 'rejected'], 

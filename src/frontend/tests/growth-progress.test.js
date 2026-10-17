@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildPracticeProgress, findRetrySubmission, formatLanguage, formatSubmissionDate } from '../src/lib/growth-progress.js';
+import { buildPracticeProgress, buildPracticeSeries, findRetrySubmission, formatLanguage, formatSubmissionDate } from '../src/lib/growth-progress.js';
 import { buildSubmissionActivity } from '../../backend/utils/submissionActivity.js';
 
 const now = new Date('2026-10-13T12:00:00Z');
@@ -46,4 +46,31 @@ test('formatting preserves unsupported language labels and handles missing dates
   assert.equal(formatLanguage('cpp'), 'C++');
   assert.equal(formatLanguage('javascript'), 'javascript');
   assert.equal(formatSubmissionDate('invalid'), 'Date unavailable');
+});
+
+test('practice chart fills each UTC day and counts only distinct first solves', () => {
+  const series = buildPracticeSeries(data, 7, now);
+  assert.equal(series.length, 7);
+  assert.deepEqual(series[0], { date: '2026-10-07', solved: 1 });
+  assert.deepEqual(series.at(-1), { date: '2026-10-13', solved: 1 });
+  assert.equal(series.reduce((total, day) => total + day.solved, 0), 2);
+  assert.equal(series.filter(day => day.solved === 0).length, 5);
+});
+
+test('chart excludes repeats of earlier solves and future or malformed records', () => {
+  const series = buildPracticeSeries({ firstSolveHistory: [
+    { problemId: 'old', date: '2026-09-01' }, { problemId: 'old', date: '2026-10-13' },
+    { problemId: 'new', date: '2026-10-13' }, { problemId: 'new', date: '2026-10-13' },
+    { problemId: 'future', date: '2026-10-14' }, { problemId: 'bad', date: 'bad' },
+  ] }, 7, now);
+  assert.equal(series.at(-1).solved, 1);
+  assert.equal(series.reduce((total, day) => total + day.solved, 0), 1);
+});
+
+test('empty 30-day practice chart contains zeroes with complete date coverage', () => {
+  const series = buildPracticeSeries({}, 30, now);
+  assert.equal(series.length, 30);
+  assert.equal(series[0].date, '2026-09-14');
+  assert.equal(series.at(-1).date, '2026-10-13');
+  assert.ok(series.every(day => day.solved === 0));
 });

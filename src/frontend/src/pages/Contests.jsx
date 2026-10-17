@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { fetchJson } from "../lib/fetch-json";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getBackendURL, useSession } from "../lib/auth-client";
-import { Trophy, Users, Calendar, Clock, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Trophy, Users, Clock, ArrowRight, AlertCircle } from "lucide-react";
 
 const getDurationText = (startTime, endTime) => {
   const start = new Date(startTime);
@@ -46,30 +47,17 @@ const Contests = () => {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const fetchContests = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await fetch(`${getBackendURL()}/api/contests`, {
-        credentials: "include"
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setContests(data);
-      } else {
-        setError("Failed to fetch contests");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to connect to backend API");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchContests = useCallback(signal =>
+    fetchJson(getBackendURL() + "/api/contests", { signal })
+      .then(data => { if (!signal?.aborted) { setContests(data); setError(""); } })
+      .catch(() => { if (!signal?.aborted) setError("Failed to fetch contests"); })
+      .finally(() => { if (!signal?.aborted) setLoading(false); }), []);
 
   useEffect(() => {
-    fetchContests();
-  }, []);
+    const controller = new AbortController();
+    fetchContests(controller.signal);
+    return () => controller.abort();
+  }, [fetchContests]);
 
   const handleRegister = async (contestId) => {
     try {
@@ -79,6 +67,8 @@ const Contests = () => {
       });
       if (response.ok) {
         showToast("Registered successfully!");
+        setLoading(true);
+        setError("");
         fetchContests();
       } else {
         const errorData = await response.json();

@@ -2,6 +2,7 @@ import { getUserLeaderboardStats, getUserCampusRank } from "../utils/leaderboard
 import { User } from "../models/User.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { University } from "../models/University.js";
+import { userIdentityFilter } from "../utils/userIdentity.js";
 
 // @desc    Get user settings & profile details
 // @route   GET /api/users/settings
@@ -13,7 +14,7 @@ export const getUserSettings = async (req, res) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const user = await User.findOne({ $or: [{ _id: userId }, { id: userId }] })
+        const user = await User.findOne(userIdentityFilter(userId))
             .populate("university", "name shortName")
             .lean();
 
@@ -21,7 +22,7 @@ export const getUserSettings = async (req, res) => {
             return res.status(404).json({ message: "User not found." });
         }
 
-        const stats = await StudentStats.findOne({ userId }).lean();
+        const { stats, rating, maxRating } = await getUserLeaderboardStats(user);
         const universities = await University.find({}).sort({ name: 1 }).lean();
 
         return res.status(200).json({
@@ -61,7 +62,7 @@ export const updateUserSettings = async (req, res) => {
         }
         const { name, image, bio, universityId, socials } = req.body;
 
-        const user = await User.findOne({ $or: [{ _id: userId }, { id: userId }] });
+        const user = await User.findOne(userIdentityFilter(userId));
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -108,7 +109,7 @@ export const updateUserSettings = async (req, res) => {
             }
         }
 
-        const updatedUser = await User.findOne({ $or: [{ _id: userId }, { id: userId }] })
+        const updatedUser = await User.findOne(userIdentityFilter(userId))
             .populate("university", "name shortName")
             .lean();
 
@@ -155,8 +156,8 @@ export const getPublicUserProfile = async (req, res) => {
             return res.status(404).json({ message: "User not found." });
         }
 
-        const { stats, rating, maxRating } = await getUserLeaderboardStats(user);
-        const campusRank = await getUserCampusRank(user, rating);
+        const { stats, rating, maxRating, isRated } = await getUserLeaderboardStats(user);
+        const campusRank = await getUserCampusRank(user, rating, isRated);
 
         return res.status(200).json({
             user: {
@@ -170,7 +171,7 @@ export const getPublicUserProfile = async (req, res) => {
                 university: user.university || null,
                 socials: user.socials || {}
             },
-            stats: { ...stats, contestRating: rating, maxRating },
+            stats: { ...stats, contestRating: rating, maxRating, isRated },
             campusRank
         });
     } catch (error) {

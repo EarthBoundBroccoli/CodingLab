@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { INITIAL_RATING } from '../utils/eloCalculator.js';
 
 const dailySolveSchema = new mongoose.Schema({
   date: { type: String, required: true }, // Format: YYYY-MM-DD for easy mapping
@@ -32,8 +33,8 @@ const studentStatsSchema = new mongoose.Schema({
   activityHistory: [dailySolveSchema], // Feeds your Recharts BarCharts/Activity Logs directly!
   
   // Competitive stats
-  contestRating: { type: Number, default: 1000 },
-  maxRating: { type: Number, default: 1000 },
+  contestRating: { type: Number, default: INITIAL_RATING },
+  maxRating: { type: Number, default: INITIAL_RATING },
   ratingTier: { type: String, default: "NOVICE" },
   points: { type: Number, default: 0 },
   ratingHistory: [{
