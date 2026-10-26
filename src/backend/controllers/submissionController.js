@@ -14,7 +14,7 @@ const fetchIfNeeded = async (urlOrContent) => {
   if (urlOrContent && (urlOrContent.startsWith("http://") || urlOrContent.startsWith("https://"))) {
     try {
       console.log(`Fetching remote testcase content from: ${urlOrContent}`);
-      const response = await axios.get(urlOrContent, { responseType: 'text' });
+      const response = await axios.get(urlOrContent, { responseType: 'text', timeout: 15000 });
       return typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
     } catch (err) {
       console.error(`Failed to fetch remote testcase content: ${err.message}`);
@@ -106,7 +106,7 @@ export const submitProblemSolution = async (req, res) => {
     };
 
     console.log(`Sending batch execution request to JDoodle for problem: "${problem.title}" [${language}]...`);
-    const response = await axios.post("https://api.jdoodle.com/v1/execute", payload);
+    const response = await axios.post("https://api.jdoodle.com/v1/execute", payload, { timeout: 30000 });
 
     console.log("JDoodle execution response:", response.data);
 
@@ -274,6 +274,9 @@ export const submitProblemSolution = async (req, res) => {
       jdoodleOutput: jdoodleOutput
     });
   } catch (error) {
+    if (['ECONNABORTED', 'ETIMEDOUT'].includes(error.code)) {
+      return res.status(504).json({ message: 'The judging service or test-data download timed out. This attempt was not scored. Please try again.' });
+    }
     console.error("Submission evaluation error:", error);
     return res.status(500).json({
       message: "An internal error occurred during submission processing.",

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Contest } from '../models/Contest.js';
 import { Problem } from '../models/Problem.js';
+import { User } from '../models/User.js';
 import { createContest, updateContest } from '../controllers/contestController.js';
 
 const approvedId = '507f1f77bcf86cd7994390ab';
@@ -58,6 +59,8 @@ for (const [kind, handler] of [['create', createContest], ['edit', updateContest
     }
 
     test(`${kind} saves an approved problem selection in its chosen order`, async t => {
+        t.mock.method(Contest.db, 'transaction', async callback => callback({}));
+        t.mock.method(User, 'find', () => ({ session: async () => [] }));
         existingContest(t);
         t.mock.method(Problem, 'countDocuments', async filter => {
             assert.deepEqual(filter, { _id: { $in: [otherId, approvedId] }, status: 'approved' });

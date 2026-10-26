@@ -40,7 +40,7 @@ export const runCodeExecution = async (req, res) => {
 
     console.log(`Sending execution request to JDoodle for language: "${language}"...`);
 
-    const response = await axios.post("https://api.jdoodle.com/v1/execute", payload);
+    const response = await axios.post("https://api.jdoodle.com/v1/execute", payload, { timeout: 30000 });
 
     // Return the response back to our client terminal
     return res.status(200).json({
@@ -50,6 +50,9 @@ export const runCodeExecution = async (req, res) => {
       cpuTime: response.data.cpuTime,
     });
   } catch (error) {
+    if (['ECONNABORTED', 'ETIMEDOUT'].includes(error.code)) {
+      return res.status(504).json({ message: 'The code execution service did not respond within 30 seconds. Please try again.' });
+    }
     console.error("JDoodle Code Execution error:", error.response?.data || error.message);
     return res.status(error.response?.status || 500).json({
       message: "An error occurred during code compilation or execution.",

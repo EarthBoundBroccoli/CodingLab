@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Contest } from '../models/Contest.js';
 import { Problem } from '../models/Problem.js';
+import { User } from '../models/User.js';
 import { createContest, updateContest } from '../controllers/contestController.js';
 import { validateContestSchedule } from '../utils/contestSchedule.js';
 
@@ -53,6 +54,8 @@ test('partial edits compare the replacement date with the unchanged date', async
 });
 
 test('valid creation saves the parsed dates', async t => {
+    t.mock.method(Contest.db, 'transaction', async callback => callback({}));
+    t.mock.method(User, 'find', () => ({ session: async () => [] }));
     t.mock.method(Problem, 'countDocuments', async () => 1);
     t.mock.method(Contest.prototype, 'save', async function () {
         assert.equal(this.startTime.toISOString(), startTime);

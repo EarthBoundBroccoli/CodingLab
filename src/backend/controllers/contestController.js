@@ -9,7 +9,7 @@ import { StudentStats } from "../models/StudentStats.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
 import { processRatingsForContest } from "../utils/contestRatings.js";
 import { rankContestParticipants } from "../utils/contestStandings.js";
-import { userIdentityFilter } from "../utils/userIdentity.js";
+import { userIdentityFilter, getUserAuthId } from "../utils/userIdentity.js";
 import { PUBLIC_PROBLEM_FIELDS } from "../utils/publicProblem.js";
 import { validateContestSchedule } from "../utils/contestSchedule.js";
 import { withSubmissionTransaction } from "../utils/submissionPersistence.js";
@@ -106,7 +106,7 @@ const fetchIfNeeded = async (urlOrContent) => {
   if (urlOrContent && (urlOrContent.startsWith("http://") || urlOrContent.startsWith("https://"))) {
     try {
       console.log(`Fetching remote testcase content from: ${urlOrContent}`);
-      const response = await axios.get(urlOrContent, { responseType: 'text' });
+      const response = await axios.get(urlOrContent, { responseType: 'text', timeout: 15000 });
       return typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
     } catch (err) {
       console.error(`Failed to fetch remote testcase content: ${err.message}`);
@@ -185,13 +185,14 @@ export const createContest = async (req, res) => {
             status: 'Upcoming'
         });
 
-        await newContest.save();
-
-        try {
-            if (mongoose.connection.readyState !== 0 || User.find.mock) {
-                const users = await User.find({});
-                const notifications = users.map(user => ({
-                    userId: (user.id || user._id).toString(),
+        // Publish the contest and its inbox announcements together. A failed
+        // notification write must not silently leave an unannounced contest.
+        await Contest.db.transaction(async session => {
+                await newContest.save({ session });
+                const users = await User.find({ banned: { $ne: true }, disabledAt: null }).session(session);
+                const recipientIds = [...new Set(users.map(getUserAuthId))];
+                const notifications = recipientIds.map(userId => ({
+                    userId,
                     title: "New Contest Created",
                     message: `A new contest "${newContest.name}" has been created!`,
                     type: "contest",
@@ -199,12 +200,9 @@ export const createContest = async (req, res) => {
                 }));
 
                 if (notifications.length > 0) {
-                    await Notification.insertMany(notifications);
+                    await Notification.insertMany(notifications, { session });
                 }
-            }
-        } catch (notifError) {
-            console.error("Failed to send contest notifications:", notifError);
-        }
+        });
 
         res.status(201).json(newContest);
     } catch (error) {
@@ -473,7 +471,7 @@ export const submitToContest = async (req, res) => {
         };
 
         console.log(`Sending batch execution request to JDoodle for contest problem: "${problem.title}" [${language}]...`);
-        const response = await axios.post("https://api.jdoodle.com/v1/execute", payload);
+        const response = await axios.post("https://api.jdoodle.com/v1/execute", payload, { timeout: 30000 });
 
         const jdoodleOutput = response.data.output || "";
         const statusCode = response.data.statusCode;
@@ -629,6 +627,9 @@ export const submitToContest = async (req, res) => {
             penalty: participant.penalty
         });
     } catch (error) {
+        if (['ECONNABORTED', 'ETIMEDOUT'].includes(error.code)) {
+            return res.status(504).json({ message: 'The judging service or test-data download timed out. This attempt was not scored. Please try again.' });
+        }
         console.error("Contest submission evaluation error:", error);
         return res.status(error.statusCode || 500).json({
             message: error.statusCode ? error.message : "An internal error occurred during submission processing.",

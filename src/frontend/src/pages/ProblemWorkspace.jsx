@@ -65,7 +65,7 @@ const ProblemWorkspace = () => {
           
           try {
             const statsResponse = await axios.get(`${getBackendURL()}/api/submissions/profile-stats`, {
-              withCredentials: true
+              withCredentials: true, timeout: 90000
             });
             const statsData = statsResponse.data;
             if (statsData) {
@@ -97,6 +97,11 @@ const ProblemWorkspace = () => {
   }, [id]);
 
   const handleRunCode = async () => {
+    if (!customInput.trim() && problem?.samples?.some(sample => sample.input?.trim())) {
+      setActiveTab("output");
+      setExecutionResult({ output: 'Run uses the Custom Input box, not the hidden tests. Enter input there or click "Use sample input", then Run again. Submit supplies hidden input automatically.', isError: true });
+      return;
+    }
     setIsRunningSandbox(true);
     setIsCompiling(true);
     setActiveTab("output");
@@ -112,7 +117,7 @@ const ProblemWorkspace = () => {
         headers: {
           "Content-Type": "application/json"
         },
-        withCredentials: true
+        withCredentials: true, timeout: 90000
       });
 
       if (response.status === 200) {
@@ -131,7 +136,7 @@ const ProblemWorkspace = () => {
       }
     } catch (err) {
       console.error("Compilation / Network Execution error:", err);
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Unknown compilation error";
+      const errMsg = err.code === "ECONNABORTED" ? "The server did not respond within 90 seconds. For submissions, check your submission history before retrying; the result may still be processing." : err.response?.data?.message || err.response?.data?.error || err.message || "Unknown compilation error";
       const detailedOutput = err.response?.data?.error?.output || "";
       
       setExecutionResult({
@@ -164,7 +169,7 @@ const ProblemWorkspace = () => {
         headers: {
           "Content-Type": "application/json"
         },
-        withCredentials: true
+        withCredentials: true, timeout: 90000
       });
 
       if (response.status === 200) {
@@ -192,7 +197,7 @@ const ProblemWorkspace = () => {
       }
     } catch (err) {
       console.error("Submission error:", err);
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Unknown submission error";
+      const errMsg = err.code === "ECONNABORTED" ? "The server did not respond within 90 seconds. For submissions, check your submission history before retrying; the result may still be processing." : err.response?.data?.message || err.response?.data?.error || err.message || "Unknown submission error";
       const detailedOutput = err.response?.data?.compileOutput || "";
       
       setExecutionResult({
@@ -429,6 +434,15 @@ const ProblemWorkspace = () => {
                   >
                     Result Output
                   </button>
+                  {problem.samples?.[0]?.input && (
+                    <button
+                      onClick={() => { setCustomInput(problem.samples[0].input); setActiveTab("input"); }}
+                      disabled={isCompiling}
+                      className="ml-auto px-3 py-2 text-emerald-300 hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+                    >
+                      Use sample input
+                    </button>
+                  )}
                 </div>
 
                 {/* Tab Content Box */}
@@ -437,7 +451,7 @@ const ProblemWorkspace = () => {
                     <textarea
                       value={customInput}
                       onChange={(e) => setCustomInput(e.target.value)}
-                      placeholder="Provide custom standard input (stdin) parameters here..."
+                      placeholder="Run reads this input. Paste a test case here or click Use sample input."
                       className="w-full h-full min-h-[60px] bg-transparent border-none outline-none resize-none font-mono text-sm text-slate-100 placeholder-slate-600 custom-scrollbar"
                     />
                   ) : (
