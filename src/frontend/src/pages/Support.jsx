@@ -23,36 +23,29 @@ const Support = () => {
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [ticketsError, setTicketsError] = useState("");
 
-  const fetchTickets = useCallback(async () => {
-    setLoadingTickets(true);
-    setTicketsError("");
-    try {
-      const response = await fetch(`${getBackendURL()}/api/support/my-tickets`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Accept": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to load support tickets.");
-      }
-
-      const data = await response.json();
-      setTickets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error fetching support tickets:", err);
-      setTicketsError(err.message || "Could not load previous tickets. Please try again.");
-    } finally {
-      setLoadingTickets(false);
-    }
+  const fetchTickets = useCallback((signal) => {
+    return fetch(`${getBackendURL()}/api/support/my-tickets`, { credentials: "include", signal })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Could not load support tickets.");
+        return data;
+      })
+      .then(data => { if (!signal?.aborted) setTickets(Array.isArray(data) ? data : []); })
+      .catch(error => { if (!signal?.aborted) setTicketsError(error.message || "Could not load support tickets."); })
+      .finally(() => { if (!signal?.aborted) setLoadingTickets(false); });
   }, []);
 
   useEffect(() => {
-    fetchTickets();
+    const controller = new AbortController();
+    fetchTickets(controller.signal);
+    return () => controller.abort();
   }, [fetchTickets]);
+
+  const reloadTickets = () => {
+    setLoadingTickets(true);
+    setTicketsError("" );
+    fetchTickets();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -246,7 +239,7 @@ const Support = () => {
             </span>
           </div>
           <button
-            onClick={fetchTickets}
+            onClick={reloadTickets}
             disabled={loadingTickets}
             className="btn btn-sm bg-white border-2 border-black rounded-none font-black uppercase text-xs shadow-[2px_2px_0px_0px_black] hover:bg-emerald-400 hover:text-black flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
           >
@@ -268,7 +261,7 @@ const Support = () => {
             <AlertCircle size={40} className="mx-auto text-red-600" />
             <p className="font-black uppercase text-red-800">{ticketsError}</p>
             <button
-              onClick={fetchTickets}
+              onClick={reloadTickets}
               className="px-6 py-2 bg-white border-2 border-black font-black uppercase text-xs shadow-[2px_2px_0px_0px_black] hover:bg-emerald-400 hover:text-black cursor-pointer"
             >
               Retry Loading

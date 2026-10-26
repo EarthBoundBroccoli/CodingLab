@@ -30,7 +30,7 @@ export const limitSupportRequests = (req, res, next) => {
 // Public support request / contact form (dispatches ticket creation if subject is provided)
 router.post('/', limitSupportRequests, (req, res, next) => {
     if (req.body?.subject && !req.body?.name && !req.body?.email) {
-        return createTicket(req, res, next);
+        return requireAuth(req, res, () => createTicket(req, res, next));
     }
     return createSupportRequest(req, res, next);
 });
@@ -46,7 +46,7 @@ router.get('/tickets/my', requireAuth, getMyTickets);
 // Smart /tickets route: returns all tickets for Admin, or my-tickets for regular users
 router.get('/tickets', requireAuth, (req, res, next) => {
     if (req.user?.role === 'admin') {
-        return getAllTickets(req, res, next);
+        return requireAdmin(req, res, () => getAllTickets(req, res, next));
     }
     return getMyTickets(req, res, next);
 });

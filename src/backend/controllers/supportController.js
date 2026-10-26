@@ -77,18 +77,16 @@ export const createTicket = async (req, res) => {
             return res.status(400).json({ message: 'Subject and message are required.' });
         }
 
-        const session = req.session || await auth.api.getSession({ headers: req.headers }).catch(() => null);
-        const userId = req.user?.id || session?.user?.id || req.body?.userId;
+        const userId = req.user?.id || req.session?.user?.id;
         if (!userId) {
             return res.status(401).json({ message: 'Unauthorized: User authentication required.' });
         }
 
-        const ticketStatus = req.body?.status || 'Open';
         const ticket = await SupportTicket.create({
             userId,
             subject: subject.trim(),
             message: message.trim(),
-            status: ticketStatus,
+            status: 'Open',
             adminReply: ''
         });
 
@@ -104,8 +102,7 @@ export const createTicket = async (req, res) => {
 // @access  Authenticated
 export const getMyTickets = async (req, res) => {
     try {
-        const session = req.session || await auth.api.getSession({ headers: req.headers }).catch(() => null);
-        const userId = req.user?.id || session?.user?.id || req.query?.userId;
+        const userId = req.user?.id || req.session?.user?.id;
         if (!userId) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
@@ -135,9 +132,9 @@ export const getAllTickets = async (req, res) => {
             }
         }
 
-        const tickets = await SupportTicket.find(filter)
-            .sort({ createdAt: -1 })
-            .populate('userId', 'name email');
+        // Better Auth IDs are strings, so resolve them explicitly rather than
+        // populating against User._id (which can throw before a fallback runs).
+        const tickets = await SupportTicket.find(filter).sort({ createdAt: -1 });
 
         // Check if any tickets have string userId that was not populated by Mongoose
         const unpopulated = tickets.filter(t => !t.userId || typeof t.userId === 'string');

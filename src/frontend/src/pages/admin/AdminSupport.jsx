@@ -26,40 +26,29 @@ const AdminSupport = () => {
   // Track which ticket ID is currently being replied to
   const [submittingReplyId, setSubmittingReplyId] = useState("");
 
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
-    setFetchError("");
-    try {
-      const url = status && status !== "all" 
-        ? `${getBackendURL()}/api/support/all?status=${status}`
-        : `${getBackendURL()}/api/support/all`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Accept": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || "Could not load support tickets.");
-      }
-
-      const data = await response.json();
-      setTickets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error loading support tickets:", err);
-      setFetchError(err.message || "Could not connect to support server. Please retry.");
-    } finally {
-      setLoading(false);
-    }
+  const fetchTickets = useCallback((signal) => {
+    return fetch(`${getBackendURL()}/api/support/all?status=${status}`, { credentials: "include", signal })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Could not load support tickets.");
+        return data;
+      })
+      .then(data => { if (!signal?.aborted) setTickets(Array.isArray(data) ? data : []); })
+      .catch(error => { if (!signal?.aborted) setFetchError(error.message || "Could not load support tickets."); })
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, [status]);
 
   useEffect(() => {
-    fetchTickets();
+    const controller = new AbortController();
+    fetchTickets(controller.signal);
+    return () => controller.abort();
   }, [fetchTickets]);
+
+  const reloadTickets = () => {
+    setLoading(true);
+    setFetchError("" );
+    fetchTickets();
+  };
 
   const handleReplyChange = (ticketId, value) => {
     setReplyDrafts((prev) => ({
@@ -161,7 +150,7 @@ const AdminSupport = () => {
           </p>
         </div>
         <button
-          onClick={fetchTickets}
+          onClick={reloadTickets}
           disabled={loading}
           className="btn btn-sm rounded-none bg-emerald-400 text-black border-2 border-black font-black uppercase text-xs shadow-[2px_2px_0px_0px_black] hover:bg-white active:translate-x-0.5 active:translate-y-0.5 cursor-pointer flex items-center gap-1.5"
         >
@@ -179,7 +168,7 @@ const AdminSupport = () => {
           <select
             id="support-status"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => { setLoading(true); setFetchError(""); setStatus(e.target.value); }}
             className="p-2 border-2 border-black bg-white font-bold text-sm outline-none shadow-[2px_2px_0px_0px_black] cursor-pointer"
           >
             <option value="all">All Tickets</option>
@@ -223,7 +212,7 @@ const AdminSupport = () => {
             <AlertCircle size={40} className="mx-auto text-red-600" />
             <p className="font-black uppercase text-red-700">{fetchError}</p>
             <button
-              onClick={fetchTickets}
+              onClick={reloadTickets}
               className="px-6 py-2 bg-white border-2 border-black font-black uppercase text-xs shadow-[2px_2px_0px_0px_black] hover:bg-emerald-400 cursor-pointer"
             >
               Retry

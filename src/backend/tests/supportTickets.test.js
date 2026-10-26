@@ -3,6 +3,8 @@ import test from 'node:test';
 import { SupportTicket } from '../models/SupportTicket.js';
 import { Notification } from '../models/Notification.js';
 import { User } from '../models/User.js';
+import { auth } from '../lib/auth.js';
+import supportRoutes from '../routes/supportRoutes.js';
 import { createTicket, getMyTickets, getAllTickets, replyToTicket } from '../controllers/supportController.js';
 
 const response = () => ({
@@ -69,9 +71,7 @@ test('getAllTickets retrieves all tickets populated with name and email', async 
     ];
 
     t.mock.method(SupportTicket, 'find', () => ({
-        sort: () => ({
-            populate: () => mockTickets
-        })
+        sort: () => mockTickets
     }));
 
     const res = response();
@@ -79,6 +79,59 @@ test('getAllTickets retrieves all tickets populated with name and email', async 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.length, 1);
     assert.equal(res.body[0].userId.name, 'Alice');
+});
+
+test('ticket creation and reads reject caller-supplied identity without authentication', async t => {
+    t.mock.method(SupportTicket, 'create', () => assert.fail('Must not create a forged ticket'));
+    t.mock.method(SupportTicket, 'find', () => assert.fail('Must not read another user tickets'));
+    const createRes = response();
+    await createTicket({ body: { userId: 'victim', subject: 'Hello', message: 'Forged' } }, createRes);
+    assert.equal(createRes.statusCode, 401);
+    const readRes = response();
+    await getMyTickets({ query: { userId: 'victim' } }, readRes);
+    assert.equal(readRes.statusCode, 401);
+});
+
+test('ticket creation ignores supplied owner and resolved status', async t => {
+    t.mock.method(SupportTicket, 'create', async data => {
+        assert.equal(data.userId, 'real-user');
+        assert.equal(data.status, 'Open');
+        return data;
+    });
+    const res = response();
+    await createTicket({ user: { id: 'real-user' }, body: { userId: 'victim', status: 'Resolved', subject: 'Help', message: 'Question' } }, res);
+    assert.equal(res.statusCode, 201);
+});
+
+test('public support ticket dispatch requires a real session', async t => {
+    t.mock.method(auth.api, 'getSession', async () => null);
+    t.mock.method(SupportTicket, 'create', () => assert.fail('Anonymous creation must not run'));
+    const route = supportRoutes.stack.find(layer => layer.route?.path === '/' && layer.route.methods.post).route;
+    const res = response();
+    await route.stack[1].handle({ headers: {}, body: { userId: 'victim', subject: 'Help', message: 'Question' } }, res, () => {});
+    assert.equal(res.statusCode, 401);
+});
+
+test('smart ticket list revalidates a cached admin role against the database', async t => {
+    t.mock.method(auth.api, 'getSession', async () => ({ user: { id: 'former-admin', role: 'admin' } }));
+    t.mock.method(User, 'findOne', async () => ({ role: 'student' }));
+    t.mock.method(SupportTicket, 'find', () => assert.fail('Former admin cannot read all tickets'));
+    const route = supportRoutes.stack.find(layer => layer.route?.path === '/tickets' && layer.route.methods.get).route;
+    const res = response();
+    await route.stack[1].handle({ headers: {}, user: { id: 'former-admin', role: 'admin' } }, res, () => {});
+    assert.equal(res.statusCode, 403);
+});
+
+test('admin ticket list resolves string auth IDs without ObjectId population', async t => {
+    t.mock.method(SupportTicket, 'find', () => ({ sort: () => [{ userId: 'auth-string', subject: 'Help' }] }));
+    t.mock.method(User, 'find', filter => {
+        assert.deepEqual(filter.$or[1]._id.$in, []);
+        return { select: () => ({ lean: async () => [{ _id: '507f1f77bcf86cd799439011', id: 'auth-string', name: 'Student', email: 'student@example.com' }] }) };
+    });
+    const res = response();
+    await getAllTickets({}, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body[0].userId.name, 'Student');
 });
 
 test('replyToTicket updates adminReply, marks Resolved, and dispatches notification', async t => {
