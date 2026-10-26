@@ -91,11 +91,11 @@ const Contests = () => {
 
   // Grouped lists for categorized displays
   const popularContests = useMemo(() => {
-    // Sort by participants length descending
-    return [...contests]
-      .sort((a, b) => b.participants.length - a.participants.length)
+    return filteredContests
+      .filter((contest) => contest.status === "Ongoing")
+      .sort((a, b) => (b.participants?.length || 0) - (a.participants?.length || 0))
       .slice(0, 3);
-  }, [contests]);
+  }, [filteredContests]);
 
   const currentlyRunning = useMemo(() => {
     return filteredContests.filter((c) => c.status === "Ongoing");
@@ -106,7 +106,14 @@ const Contests = () => {
   }, [filteredContests]);
 
   const previousContests = useMemo(() => {
-    return filteredContests.filter((c) => c.status === "Ended");
+    return filteredContests
+      .filter((c) => c.status === "Ended")
+      .sort((a, b) => {
+        const timeA = new Date(a.endTime).getTime() || 0;
+        const timeB = new Date(b.endTime).getTime() || 0;
+        return timeB - timeA;
+      })
+      .slice(0, 5);
   }, [filteredContests]);
 
   if (loading) {
@@ -170,12 +177,12 @@ const Contests = () => {
       </div>
 
       {/* Popular Contests section */}
-      {popularContests.length > 0 && statusFilter === "All" && !searchQuery && (
+      {popularContests.length > 0 && (
         <div className="space-y-6">
           <h2 className="text-2xl font-black uppercase font-spartan">Popular Contests</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {popularContests.map((contest, idx) => {
-              const registered = session && contest.participants.some(p => p.userId === session.user.id || p.userId?._id === session.user.id);
+              const registered = session && (contest.participants || []).some(p => p.userId === session.user?.id || p.userId?._id === session.user?.id);
               const isEnded = contest.status === "Ended";
               return (
                 <div key={contest._id} className="bg-white neo-brutal border-emerald-400 border-[6px] p-6 space-y-4 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all cursor-pointer group shadow-[4px_4px_0px_0px_#10b981] flex flex-col justify-between">
@@ -323,8 +330,14 @@ const Contests = () => {
         {/* Previous Contests (40%) */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white neo-brutal border-black border-4 overflow-hidden">
-            <div className="bg-slate-900 p-4 border-b-4 border-black">
+            <div className="bg-slate-900 p-4 border-b-4 border-black flex justify-between items-center gap-2">
               <h2 className="text-2xl font-black uppercase text-white font-spartan">Previous Contests</h2>
+              <Link
+                to="/contests/previous"
+                className="btn btn-sm bg-emerald-400 text-black border-2 border-black rounded-none font-black uppercase hover:bg-white hover:text-black shrink-0"
+              >
+                View All →
+              </Link>
             </div>
             <div className="p-6 space-y-6 bg-slate-50">
               {previousContests.length > 0 ? (
@@ -333,7 +346,7 @@ const Contests = () => {
                     <div key={contest._id} className="bg-white border-2 border-black p-4 flex justify-between items-center hover:bg-emerald-400 transition-all cursor-pointer group shadow-[4px_4px_0px_0px_black] active:translate-x-1 active:translate-y-1 active:shadow-none">
                       <div className="space-y-1 min-w-0">
                         <h4 className="font-black uppercase text-sm group-hover:text-black truncate">{contest.name}</h4>
-                        <p className="text-[10px] font-black uppercase opacity-60">PARTICIPANTS: {contest.participants.length}</p>
+                        <p className="text-[10px] font-black uppercase opacity-60">PARTICIPANTS: {contest.participants?.length || 0}</p>
                       </div>
                       <Link to={`/contests/${contest._id}`} className="p-1">
                         <ArrowRight size={18} />

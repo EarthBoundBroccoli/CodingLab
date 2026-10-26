@@ -2,6 +2,8 @@ import { SetterRequest } from "../models/SetterRequest.js";
 import { User } from "../models/User.js";
 import { Notification } from "../models/Notification.js";
 import { Problem } from "../models/Problem.js";
+import { Submission } from "../models/Submission.js";
+import { Contest } from "../models/Contest.js";
 import mongoose from "mongoose";
 import { userIdentityFilter } from "../utils/accountAccess.js";
 
@@ -126,8 +128,16 @@ export const decideSetterRequest = async (req, res) => {
 export const getDashboardSummary = async (req, res) => {
     try {
         const totalUsers = await User.countDocuments({});
-        const totalProblems = await Problem.countDocuments({ status: "approved" });
+        const totalProblems = await Problem.countDocuments({});
         const pendingProblems = await Problem.countDocuments({ status: "pending" });
+
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const activeUsers = await Submission.distinct("userId", { createdAt: { $gte: startOfToday } });
+        const activeToday = activeUsers.length;
+
+        const activeContests = await Contest.countDocuments({ status: "Ongoing" });
+        const upcomingContests = await Contest.countDocuments({ status: "Upcoming" });
 
         // Retrieve latest 5 pending problems, populated with setterId to resolve name and email
         const recentProblemRequests = await Problem.find({ status: "pending" })
@@ -135,33 +145,35 @@ export const getDashboardSummary = async (req, res) => {
             .limit(5)
             .populate("setterId", "name email");
 
-        // Aggregation to find top contributors (approved problems grouped by setterId)
+        // Aggregation to find top 2 setters with the most 'Approved' problems
         const topContributorsRaw = await Problem.aggregate([
-            { $match: { status: "approved" } },
+            { $match: { status: { $regex: /^approved$/i } } },
             { $group: { _id: "$setterId", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
-            { $limit: 5 }
+            { $limit: 2 }
         ]);
 
         // Resolve names of top contributors
         const topContributors = [];
         for (const contributor of topContributorsRaw) {
             if (contributor._id) {
-                const user = await User.findById(contributor._id);
-                if (user) {
-                    topContributors.push({
-                        id: contributor._id,
-                        name: user.name,
-                        solved: contributor.count // Solved / Created count representation in UI
-                    });
-                }
+                const user = await User.findOne(userIdentityFilter(contributor._id));
+                topContributors.push({
+                    id: contributor._id,
+                    name: user ? user.name : "Unknown Setter",
+                    count: contributor.count,
+                    solved: contributor.count
+                });
             }
         }
 
         res.json({
             totalUsers,
             totalProblems,
+            activeToday,
             pendingProblems,
+            activeContests,
+            upcomingContests,
             recentProblemRequests,
             topContributors
         });

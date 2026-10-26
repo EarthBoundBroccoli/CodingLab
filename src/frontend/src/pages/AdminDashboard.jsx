@@ -82,7 +82,10 @@ const AdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState({
     totalUsers: 0,
     totalProblems: 0,
+    activeToday: 0,
     pendingProblems: 0,
+    activeContests: 0,
+    upcomingContests: 0,
     recentProblemRequests: [],
     topContributors: []
   });
@@ -194,19 +197,21 @@ const AdminDashboard = () => {
   ];
 
   const stats = [
-    { label: "Total Users", value: dashboardData.totalUsers, headerClass: "bg-sky-400" },
-    { label: "Total Problems", value: dashboardData.totalProblems, headerClass: "bg-emerald-400" },
-    { label: "Active Today", value: 12, headerClass: "bg-amber-400" },
-    { label: "Total Problems Pending", value: dashboardData.pendingProblems, headerClass: "bg-rose-300" },
+    { label: "Total Users", value: dashboardData.totalUsers ?? 0, headerClass: "bg-sky-400" },
+    { label: "Total Problems", value: dashboardData.totalProblems ?? 0, headerClass: "bg-emerald-400" },
+    { label: "Active Today", value: dashboardData.activeToday ?? 0, headerClass: "bg-amber-400" },
+    { label: "Total Problems Pending", value: dashboardData.pendingProblems ?? 0, headerClass: "bg-rose-300" },
   ];
 
   const activeContestsCount = useMemo(() => {
+    if (dashboardData.activeContests !== undefined) return dashboardData.activeContests;
     return contests.filter(c => c.status === "Ongoing").length;
-  }, [contests]);
+  }, [dashboardData.activeContests, contests]);
 
   const upcomingContestsCount = useMemo(() => {
+    if (dashboardData.upcomingContests !== undefined) return dashboardData.upcomingContests;
     return contests.filter(c => c.status === "Upcoming").length;
-  }, [contests]);
+  }, [dashboardData.upcomingContests, contests]);
 
   const recentContests = useMemo(() => {
     return contests.slice(0, 5);
@@ -438,7 +443,7 @@ const AdminDashboard = () => {
             ) : (
               dashboardData.topContributors.map((user, index) => (
                 <li
-                  key={user.id}
+                  key={user.id || user._id || index}
                   className="flex items-center justify-between border-2 border-black p-3 bg-slate-50 hover:bg-emerald-50 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -448,7 +453,7 @@ const AdminDashboard = () => {
                     <span className="font-black uppercase text-sm truncate text-black">{user.name}</span>
                   </div>
                   <span className="font-black text-sm bg-white border-2 border-black px-2 py-1 shadow-[2px_2px_0px_0px_black] text-black">
-                    {user.solved} Approved
+                    {user.count ?? user.solved ?? 0} Approved
                   </span>
                 </li>
               ))
