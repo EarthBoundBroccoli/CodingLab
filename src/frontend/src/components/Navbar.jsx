@@ -50,6 +50,7 @@ const Navbar = () => {
     { name: "Contests", path: "/contests" },
     { name: "Growth", path: "/growth" },
     { name: "Leaderboard", path: "/leaderboard" },
+    { name: "Support", path: "/support" },
   ] : [
     { name: "Explore", path: "/" },
     { name: "About", path: "/about" },

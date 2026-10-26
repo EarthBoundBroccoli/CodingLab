@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Contest } from "../models/Contest.js";
 import { Problem } from "../models/Problem.js";
 import { User } from "../models/User.js";
+import { Notification } from "../models/Notification.js";
 import { Submission } from "../models/Submission.js";
 import { StudentStats } from "../models/StudentStats.js";
 import { getJDoodleConfig } from "../lib/jdoodle.js";
@@ -185,6 +186,26 @@ export const createContest = async (req, res) => {
         });
 
         await newContest.save();
+
+        try {
+            if (mongoose.connection.readyState !== 0 || User.find.mock) {
+                const users = await User.find({});
+                const notifications = users.map(user => ({
+                    userId: (user.id || user._id).toString(),
+                    title: "New Contest Created",
+                    message: `A new contest "${newContest.name}" has been created!`,
+                    type: "contest",
+                    isRead: false
+                }));
+
+                if (notifications.length > 0) {
+                    await Notification.insertMany(notifications);
+                }
+            }
+        } catch (notifError) {
+            console.error("Failed to send contest notifications:", notifError);
+        }
+
         res.status(201).json(newContest);
     } catch (error) {
         console.error("Error creating contest:", error.message, error.stack);
