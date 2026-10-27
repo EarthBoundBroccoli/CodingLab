@@ -4,8 +4,14 @@ export const createRuntimeMarker = () => `CODINGLAB_RUNTIME_${randomUUID().repla
 
 export const readCompilationFailure = (data, marker) => {
   const prefix = marker + 'CE:';
-  return [data.output, data.stderr].filter(value => typeof value === 'string').join('\n')
-    .split(/\r?\n/).find(line => line.startsWith(prefix))?.slice(prefix.length).trim().slice(0, 300) || '';
+  const line = [data.output, data.stderr].filter(value => typeof value === 'string').join('\n')
+    .split(/\r?\n/).find(line => line.startsWith(prefix));
+  if (line) return line.slice(prefix.length).trim().slice(0, 300) || '';
+  if (data.isCompiled === false || data.compilationStatus != null) {
+    const raw = [data.output, data.stderr].filter(value => typeof value === 'string').join('\n').trim();
+    return raw.slice(0, 500) || 'Compilation failed.';
+  }
+  return '';
 };
 
 export const readRuntimeFailure = (data, marker) => {
@@ -45,6 +51,9 @@ ${studentCode}
 #undef main
 
 int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+
     auto crash_handler = [](int signal) {
         const char message[] = "\\n${marker}Fatal runtime signal\\n";
         write(STDERR_FILENO, message, sizeof(message) - 1);
@@ -70,14 +79,18 @@ int main() {
     inputs.push_back(all_input);
 
     std::streambuf* orig_cin = std::cin.rdbuf();
+    std::cin.clear();
 
     for (size_t i = 0; i < inputs.size(); ++i) {
         if (i > 0) {
+            std::cout.flush();
             std::cout << "///\\n";
+            std::cout.flush();
         }
 
         std::istringstream iss(inputs[i]);
         std::cin.rdbuf(iss.rdbuf());
+        std::cin.clear();
 
         // Execute student code
         try {
@@ -88,6 +101,7 @@ int main() {
             return 1;
         }
 
+        std::cout.flush();
         std::cin.clear();
     }
 

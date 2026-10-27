@@ -84,12 +84,13 @@ export async function judgeSubmission({ problem, code, language }) {
   const statusCode = response.data.statusCode;
   const runtimeOutput = readRuntimeFailure(response.data, runtimeMarker);
   const compilationOutput = readCompilationFailure(response.data, runtimeMarker);
+  const isCompilationError = !!compilationOutput || response.data.isCompiled === false;
   const cpuTime = response.data.cpuTime;
   const reportedMemory = response.data.memory;
   const memory = Number(reportedMemory);
   const hasMemory = (typeof reportedMemory === 'number' || (typeof reportedMemory === 'string' && reportedMemory.trim() !== ''))
     && Number.isFinite(memory) && memory >= 0;
-  if ((statusCode === 0 || statusCode === 200) && !hasMemory && !runtimeOutput && !compilationOutput) {
+  if ((statusCode === 0 || statusCode === 200) && !hasMemory && !runtimeOutput && !isCompilationError) {
     throw new Error('Execution service did not report valid memory usage. Please retry.');
   }
 
@@ -97,7 +98,7 @@ export async function judgeSubmission({ problem, code, language }) {
   const cpuTimeMs = parseFloat(cpuTime) * 1000;
 
   let evaluationVerdict = '';
-  if (compilationOutput || (statusCode !== 0 && statusCode !== 200)) {
+  if (isCompilationError || (statusCode !== 0 && statusCode !== 200)) {
     evaluationVerdict = 'CE';
   } else if (cpuTimeMs > timeLimit) {
     evaluationVerdict = 'TLE';
@@ -114,9 +115,9 @@ export async function judgeSubmission({ problem, code, language }) {
       isMatch = false;
     } else {
       for (let i = 0; i < outputsArray.length; i++) {
-        const expected = outputsArray[i].replace(/\r/g, '').trim();
-        const actual = actualOutputs[i].replace(/\r/g, '').trim();
-        if (expected !== actual) {
+        const expected = outputsArray[i] || '';
+        const actual = actualOutputs[i] || '';
+        if (actual.replace(/\r\n/g, '\n').trim() !== expected.replace(/\r\n/g, '\n').trim()) {
           isMatch = false;
           break;
         }
@@ -132,12 +133,12 @@ export async function judgeSubmission({ problem, code, language }) {
     MLE: 'Memory Limit Exceeded',
     RE: 'Runtime Error',
     CE: 'Compilation Error'
-  }[evaluationVerdict];
+  }[evaluationVerdict] || 'Wrong Answer';
 
   return {
     dbVerdict,
     evaluationVerdict,
-    timeTaken: Math.round(cpuTimeMs) || 0,
+    timeTaken: evaluationVerdict === 'CE' ? 0 : (Math.round(cpuTimeMs) || 0),
     memoryUsed: hasMemory ? memory : 0,
     compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : "",
     jdoodleOutput

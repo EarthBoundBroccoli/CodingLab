@@ -103,7 +103,7 @@ const ProblemWorkspace = () => {
         const { verdict, timeTaken, memoryUsed, compileOutput, evaluationVerdict } = response.data;
         const displayOutput = verdict === "Accepted"
           ? `Verdict: ACCEPTED (AC)\n\nCongratulations! All test cases passed successfully.`
-          : `Verdict: ${verdict.toUpperCase()}\n\n${compileOutput || "One or more test cases failed or resource limits were exceeded."}`;
+          : `Verdict: ${(verdict || evaluationVerdict || "FAILED").toUpperCase()}\n\n${compileOutput || "One or more test cases failed or resource limits were exceeded."}`;
         
         if (evaluationVerdict) {
           setSubmissionStatus(evaluationVerdict);
@@ -164,7 +164,7 @@ const ProblemWorkspace = () => {
         
         {/* LEFT PANEL: Description (55%) */}
         <Panel defaultSize={55} minSize={30}>
-          <div className="w-full h-full overflow-y-auto p-6 bg-white custom-scrollbar space-y-6">
+          <div className="w-full h-full overflow-y-auto p-6 pb-24 bg-white custom-scrollbar space-y-6">
             {isEvaluating && (
               <div className="flex items-center gap-3 p-4 border-3 border-black bg-amber-300 text-black font-black uppercase text-xs tracking-wider animate-pulse shadow-[4px_4px_0px_0px_black] mb-4">
                 <Loader2 className="animate-spin text-black" size={20} />
@@ -291,6 +291,8 @@ const ProblemWorkspace = () => {
                 </div>
               </div>
             )}
+            {/* Bottom Padding */}
+            <div className="h-16" />
           </div>
         </Panel>
 

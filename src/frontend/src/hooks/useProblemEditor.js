@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { getBackendURL } from '../lib/auth-client';
 import { editorLanguages, readEditorPreferences } from '../lib/editor-preferences';
 import { boilerplates } from '../lib/editor-templates';
-import { missingRunInput, RUN_INPUT_MESSAGE, runCode } from '../lib/run-code';
+import { runCode } from '../lib/run-code';
 
 export function useProblemEditor({ problem, prefillCode, prefillLanguage, contest = false }) {
   const [editorPreferences] = useState(() => readEditorPreferences());
@@ -24,17 +24,19 @@ export function useProblemEditor({ problem, prefillCode, prefillLanguage, contes
   };
 
   const handleRunCode = async () => {
-    if (missingRunInput(problem, customInput)) {
-      setActiveTab('output');
-      setExecutionResult({ output: RUN_INPUT_MESSAGE, isError: true });
-      return;
+    let inputToUse = customInput;
+    if (!inputToUse || !inputToUse.trim()) {
+      inputToUse = problem?.samples?.[0]?.input || '';
+      if (inputToUse) {
+        setCustomInput(inputToUse);
+      }
     }
     setIsRunningSandbox(true);
     setIsCompiling(true);
     setActiveTab('output');
     setExecutionResult(null);
     try {
-      setExecutionResult(await runCode({ baseURL: getBackendURL(), code: codeValue, language, customInput, contest }));
+      setExecutionResult(await runCode({ baseURL: getBackendURL(), code: codeValue, language, customInput: inputToUse, contest }));
     } finally {
       setIsCompiling(false);
       setIsRunningSandbox(false);
