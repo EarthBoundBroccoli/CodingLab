@@ -44,12 +44,6 @@ const Leaderboard = () => {
                         National University Rankings
                     </h1>
                 </div>
-                <p className="text-xl font-bold text-black border-l-4 border-black pl-4 ml-2 mt-4">
-                    See which campus dominates the algorithm arena.
-                </p>
-                <p className="text-sm font-bold bg-white inline-block mt-4 px-3 py-1 border-2 border-black uppercase shadow-[2px_2px_0px_0px_black]">
-                    University score = the sum of its top 10 active, rated members’ contest ratings. A completed rated contest is required. Practice points do not count; equal scores share a rank.
-                </p>
             </div>
 
             {error && (

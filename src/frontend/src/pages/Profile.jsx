@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { getBackendURL, useSession } from "../lib/auth-client";
-import { buildYearActivity } from "../lib/profile-activity";
+import { buildYearActivity, getActivityYears } from "../lib/profile-activity";
 import { ArrowUpRight, Building2, Pencil, Trophy } from 'lucide-react';
 import './profile.css';
 import { 
@@ -35,7 +35,7 @@ const Profile = () => {
     const targetId = paramUserId || session?.user?.id;
     const [attempt, setAttempt] = useState(0);
     const [currentYear] = useState(() => new Date().getUTCFullYear());
-    const [selectedYear, setSelectedYear] = useState(currentYear);
+    const [requestedYear, setSelectedYear] = useState(currentYear);
     const [showAllContests, setShowAllContests] = useState(false);
 
     const [profileData, setProfileData] = useState({
@@ -91,11 +91,12 @@ const Profile = () => {
 
     const yearlyContributions = useMemo(() => {
         const activity = profileData.stats?.activityHistory || [];
-        const years = new Set([currentYear, currentYear - 1]);
-        activity.forEach(item => years.add(Number(item.date.slice(0, 4))));
-        return Object.fromEntries([...years].map(year => [year, buildYearActivity(activity, year)]));
-    }, [profileData.stats?.activityHistory, currentYear]);
+        const createdAt = profileData.user?.createdAt;
+        const years = getActivityYears(createdAt, currentYear);
+        return Object.fromEntries(years.map(year => [year, buildYearActivity(activity, year, createdAt)]));
+    }, [profileData.stats?.activityHistory, profileData.user?.createdAt, currentYear]);
     const availableYears = Object.keys(yearlyContributions).map(Number).sort((a, b) => b - a);
+    const selectedYear = availableYears.includes(requestedYear) ? requestedYear : currentYear;
 
     if (isPending || profileData.loading || profileData.targetId !== targetId) {
         return (
@@ -154,8 +155,8 @@ const Profile = () => {
 
     const activityColors = ['#f1f5f9', '#a7f3d0', '#34d399', '#059669', '#065f46'];
     const calendarWidth = Math.ceil(displayHeatmap.length / 7) * 15 + 48;
-    const activeDays = activeYearObj.data.filter(day => day.count > 0).length;
-    const bestDay = Math.max(0, ...activeYearObj.data.map(day => day.count));
+    const activeDays = activeYearObj.data.filter(day => day?.count > 0).length;
+    const bestDay = Math.max(0, ...activeYearObj.data.map(day => day?.count || 0));
 
     return (
         <div className="student-profile">

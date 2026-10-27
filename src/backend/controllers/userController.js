@@ -169,7 +169,8 @@ export const getPublicUserProfile = async (req, res) => {
                 bio: user.bio || stats?.bio || "",
                 institution: user.institution || "",
                 university: user.university || null,
-                socials: user.socials || {}
+                socials: user.socials || {},
+                createdAt: user.createdAt
             },
             stats: { ...stats, contestRating: rating, maxRating, isRated },
             campusRank

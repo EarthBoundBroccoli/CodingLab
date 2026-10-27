@@ -1,12 +1,13 @@
+import { useProblemEditor } from "../hooks/useProblemEditor";
+import WorkspaceEditor from "../components/workspace/WorkspaceEditor";
+import WorkspaceActions from "../components/workspace/WorkspaceActions";
 import { useEffect, useState } from "react";
 import { useParams, Link, useLocation, useSearchParams } from "react-router-dom";
-import Editor from "@monaco-editor/react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import axios from "axios";
 import { getBackendURL } from "../lib/auth-client";
 import { renderMarkdown } from "../lib/markdown";
-import { editorLanguages, readEditorPreferences, registerEditorThemes } from "../lib/editor-preferences";
-import { Loader2, AlertCircle, Play, Send, ChevronLeft } from "lucide-react";
+import { Loader2, AlertCircle, ChevronLeft } from "lucide-react";
 
 const badgeForDifficulty = (difficulty) => {
   if (difficulty === "Easy") return "bg-emerald-300";
@@ -14,11 +15,6 @@ const badgeForDifficulty = (difficulty) => {
   return "bg-rose-300";
 };
 
-const boilerplates = {
-  cpp: '#include <iostream>\nusing namespace std;\nint main() {\n    // Write your code here\n    return 0;\n}',
-  python: '# Write your code here\ndef solve():\n    pass\n\nif __name__ == "__main__":\n    solve()',
-  java: 'import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}'
-};
 
 const ProblemWorkspace = () => {
   const { id } = useParams();
@@ -31,26 +27,10 @@ const ProblemWorkspace = () => {
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [editorPreferences] = useState(() => readEditorPreferences());
-  const [language, setLanguage] = useState(() => editorLanguages.includes(prefillLanguage) ? prefillLanguage : editorPreferences.language);
-  const [codeValue, setCodeValue] = useState(() => prefillCode ?? boilerplates[language]);
-
-  // Console execution states
-  const [activeTab, setActiveTab] = useState("input");
-  const [customInput, setCustomInput] = useState("");
-  const [executionResult, setExecutionResult] = useState(null);
-  const [isCompiling, setIsCompiling] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState("NEUTRAL");
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isRunningSandbox, setIsRunningSandbox] = useState(false);
-
-  const handleLanguageChange = event => {
-    const nextLanguage = event.target.value;
-    if (nextLanguage !== language && boilerplates[nextLanguage]) {
-      setLanguage(nextLanguage);
-      setCodeValue(boilerplates[nextLanguage]);
-    }
-  };
+  const workspace = useProblemEditor({ problem, prefillCode, prefillLanguage, contest: false });
+  const { language, codeValue, setIsCompiling, setIsEvaluating,
+    setActiveTab, setExecutionResult, isEvaluating } = workspace;
 
   useEffect(() => {
     const fetchProblemDetails = async () => {
@@ -95,59 +75,6 @@ const ProblemWorkspace = () => {
     };
     fetchProblemDetails();
   }, [id]);
-
-  const handleRunCode = async () => {
-    if (!customInput.trim() && problem?.samples?.some(sample => sample.input?.trim())) {
-      setActiveTab("output");
-      setExecutionResult({ output: 'Run uses the Custom Input box, not the hidden tests. Enter input there or click "Use sample input", then Run again. Submit supplies hidden input automatically.', isError: true });
-      return;
-    }
-    setIsRunningSandbox(true);
-    setIsCompiling(true);
-    setActiveTab("output");
-    setExecutionResult(null);
-
-    try {
-      console.log("Sending code run request to compilation backend...");
-      const response = await axios.post(`${getBackendURL()}/api/submissions/run`, {
-        code: codeValue,
-        language: language,
-        customInput: customInput
-      }, {
-        headers: {
-          "Content-Type": "application/json"
-        },
-        withCredentials: true, timeout: 90000
-      });
-
-      if (response.status === 200) {
-        setExecutionResult({
-          output: response.data.output,
-          statusCode: response.data.statusCode,
-          memory: response.data.memory,
-          cpuTime: response.data.cpuTime,
-          isError: false
-        });
-      } else {
-        setExecutionResult({
-          output: `Execution failed with status code ${response.status}`,
-          isError: true
-        });
-      }
-    } catch (err) {
-      console.error("Compilation / Network Execution error:", err);
-      const errMsg = err.code === "ECONNABORTED" ? "The server did not respond within 90 seconds. For submissions, check your submission history before retrying; the result may still be processing." : err.response?.data?.message || err.response?.data?.error || err.message || "Unknown compilation error";
-      const detailedOutput = err.response?.data?.error?.output || "";
-      
-      setExecutionResult({
-        output: `${errMsg}\n${detailedOutput}`,
-        isError: true
-      });
-    } finally {
-      setIsCompiling(false);
-      setIsRunningSandbox(false);
-    }
-  };
 
   const handleSubmitCode = async () => {
     setIsCompiling(true);
@@ -371,197 +298,12 @@ const ProblemWorkspace = () => {
         <Separator className="w-2 bg-slate-200 hover:bg-black transition-colors border-l border-r border-black cursor-col-resize flex items-center justify-center" />
 
         {/* RIGHT PANEL: IDE & Console Stack (45%) */}
-        <Panel defaultSize={45} minSize={30}>
-          <Group orientation="vertical">
-            
-            {/* Upper Panel: Monaco Editor */}
-            <Panel defaultSize={65} minSize={40}>
-              <div className="w-full h-full p-4 bg-slate-950 flex flex-col">
-                <div className="w-full h-full border-4 border-black neo-brutal overflow-hidden">
-                  <Editor
-                    height="100%"
-                    theme={editorPreferences.theme}
-                    language={language}
-                    value={codeValue}
-                    onChange={(value) => setCodeValue(value || "")}
-                    beforeMount={registerEditorThemes}
-                    loading={
-                      <div className="flex flex-col items-center justify-center h-full bg-[#020617] text-slate-400 space-y-3 font-mono">
-                        <Loader2 className="animate-spin text-emerald-400" size={32} />
-                        <span className="text-xs uppercase font-black tracking-widest">Loading Editor...</span>
-                      </div>
-                    }
-                    options={{
-                      tabSize: editorPreferences.tabSize,
-                      insertSpaces: true,
-                      detectIndentation: false,
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      fontFamily: "Fira Code, Courier New, monospace",
-                      automaticLayout: true,
-                      padding: { top: 12, bottom: 12 },
-                    }}
-                  />
-                </div>
-              </div>
-            </Panel>
-
-            {/* Vertical Drag Handle */}
-            <Separator className="h-2 bg-slate-200 hover:bg-black transition-colors border-t border-b border-black cursor-row-resize flex items-center justify-center" />
-
-            {/* Bottom Panel: Console Terminal */}
-            <Panel defaultSize={35} minSize={20}>
-              <div className="w-full h-full bg-[#020617] border-t-4 border-black flex flex-col text-slate-200 overflow-hidden">
-                {/* Tab Header Strip */}
-                <div className="flex bg-slate-900 border-b-2 border-black text-xs font-black uppercase tracking-wider select-none">
-                  <button
-                    onClick={() => setActiveTab("input")}
-                    className={`px-4 py-2.5 border-r-2 border-black transition-colors cursor-pointer ${
-                      activeTab === "input"
-                        ? "bg-emerald-400 text-black font-black"
-                        : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                    }`}
-                  >
-                    Custom Input
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("output")}
-                    className={`px-4 py-2.5 border-r-2 border-black transition-colors cursor-pointer ${
-                      activeTab === "output"
-                        ? "bg-emerald-400 text-black font-black"
-                        : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                    }`}
-                  >
-                    Result Output
-                  </button>
-                  {problem.samples?.[0]?.input && (
-                    <button
-                      onClick={() => { setCustomInput(problem.samples[0].input); setActiveTab("input"); }}
-                      disabled={isCompiling}
-                      className="ml-auto px-3 py-2 text-emerald-300 hover:bg-slate-800 cursor-pointer disabled:opacity-50"
-                    >
-                      Use sample input
-                    </button>
-                  )}
-                </div>
-
-                {/* Tab Content Box */}
-                <div className="flex-1 overflow-auto p-4 custom-scrollbar">
-                  {activeTab === "input" ? (
-                    <textarea
-                      value={customInput}
-                      onChange={(e) => setCustomInput(e.target.value)}
-                      placeholder="Run reads this input. Paste a test case here or click Use sample input."
-                      className="w-full h-full min-h-[60px] bg-transparent border-none outline-none resize-none font-mono text-sm text-slate-100 placeholder-slate-600 custom-scrollbar"
-                    />
-                  ) : (
-                    <div className="w-full h-full font-mono text-sm leading-relaxed whitespace-pre-wrap select-text">
-                      {isCompiling ? (
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <Loader2 className="animate-spin text-emerald-400" size={16} />
-                          <span className="text-xs uppercase font-black tracking-widest text-emerald-400 animate-pulse">Compiling script...</span>
-                        </div>
-                      ) : executionResult ? (
-                        <div className="space-y-4">
-                          {/* Raw Output Window */}
-                          <div className={executionResult.isError ? "text-rose-500 font-bold" : "text-slate-100"}>
-                            {executionResult.output || "Empty output."}
-                          </div>
-
-                          {/* Stats Badges */}
-                          {!executionResult.isError && (
-                            <div className="flex flex-wrap gap-2 border-t border-slate-800 pt-3">
-                              <span className="bg-slate-800 text-slate-300 px-2 py-0.5 text-xs font-bold border border-slate-700">
-                                Memory: {executionResult.memory || 0} KB
-                              </span>
-                              <span className="bg-slate-800 text-slate-300 px-2 py-0.5 text-xs font-bold border border-slate-700">
-                                CPU Time: {executionResult.cpuTime || "0.00"}s
-                              </span>
-                              <span className={`px-2 py-0.5 text-xs font-bold border ${
-                                executionResult.statusCode === 0 ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-rose-950 text-rose-400 border-rose-800"
-                              }`}>
-                                Exit Code: {executionResult.statusCode}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-slate-500 italic text-xs">
-                          Run code to view compilation outputs...
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Panel>
-
-          </Group>
-        </Panel>
+        <WorkspaceEditor workspace={workspace} problem={problem} />
 
       </Group>
 
       {/* Action Command Bar / Sticky Lower Footer */}
-      <div className="fixed bottom-0 left-0 right-0 h-[64px] bg-white border-t-4 border-black p-4 flex items-center justify-between z-20 shadow-[0_-4px_0_0_#000]">
-        {/* Language Selection */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="language-select" className="text-[10px] font-black uppercase tracking-widest text-black">Language:</label>
-          <select
-            id="language-select"
-            value={language}
-            onChange={handleLanguageChange}
-            className="p-2 border-4 border-black bg-white font-black uppercase text-xs outline-none select-none rounded-none focus:bg-emerald-400 focus:text-black cursor-pointer transition-colors text-black"
-          >
-            <option value="cpp">C++ (GCC 20)</option>
-            <option value="java">Java (OpenJDK 17)</option>
-            <option value="python">Python (CPython 3.10)</option>
-          </select>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRunCode}
-            disabled={isCompiling || isEvaluating || isRunningSandbox}
-            className={`px-4 py-2 border-4 border-black bg-white font-black uppercase text-xs sm:text-sm shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 text-black ${
-              isCompiling || isEvaluating || isRunningSandbox
-                ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
-                : "hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_black] hover:bg-slate-100 cursor-pointer"
-            }`}
-          >
-            {isRunningSandbox ? (
-              <>
-                <Loader2 className="animate-spin" size={16} /> Compiling...
-              </>
-            ) : (
-              <>
-                <Play size={16} /> Run Code
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            disabled={isCompiling || isEvaluating || isRunningSandbox}
-            onClick={handleSubmitCode}
-            className={`px-4 py-2 border-4 border-black bg-slate-900 text-white font-black uppercase text-xs sm:text-sm shadow-[3px_3px_0px_0px_black] transition-all flex items-center gap-1 ${
-              isCompiling || isEvaluating || isRunningSandbox
-                ? "opacity-50 cursor-not-allowed shadow-none translate-x-[1px] translate-y-[1px]"
-                : "hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_black] hover:bg-emerald-400 hover:text-black cursor-pointer"
-            }`}
-          >
-            {isEvaluating ? (
-              <>
-                <Loader2 className="animate-spin" size={16} /> Evaluating...
-              </>
-            ) : (
-              <>
-                <Send size={16} /> Submit Code
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      <WorkspaceActions workspace={workspace} handleSubmitCode={handleSubmitCode} />
     </div>
   );
 };

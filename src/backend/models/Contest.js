@@ -30,6 +30,7 @@ const contestSchema = new mongoose.Schema({
   },
   ratingsCalculated: { type: Boolean, default: false },
   ratingsCalculatedAt: Date,
+  reminderSentFor: Date,
   participants: [{
     userId: { 
       type: String, // Matches Better Auth string user ID

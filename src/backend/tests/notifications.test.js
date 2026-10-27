@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { auth } from '../lib/auth.js';
 import { Notification } from '../models/Notification.js';
+import { Contest } from '../models/Contest.js';
 import { getNotifications, readAllNotifications } from '../controllers/notificationController.js';
 
 const response = () => ({
@@ -10,6 +11,21 @@ const response = () => ({
     json(body) { this.body = body; return this; }
 });
 const id = '507f1f77bcf86cd799439011';
+
+for (const matches of [0, 1, 2]) {
+    test(`legacy announcement resolves only one matching contest (${matches} matches)`, async t => {
+        t.mock.method(auth.api, 'getSession', async () => ({ user: { id: 'owner' } }));
+        const row = new Notification({ userId: 'owner', type: 'contest', title: 'New Contest Created', message: 'A new contest "Weekly" has been created!' });
+        t.mock.method(Notification, 'find', () => ({ sort: async () => [row] }));
+        t.mock.method(Contest, 'find', filter => {
+            assert.deepEqual(filter, { name: { $in: ['Weekly'] } });
+            return { select: () => ({ lean: async () => Array.from({ length: matches }, () => ({ _id: id, name: 'Weekly' })) }) };
+        });
+        const res = response();
+        await getNotifications({ headers: {} }, res);
+        assert.equal(res.body[0].contestId, matches === 1 ? id : undefined);
+    });
+}
 
 test('anonymous requests cannot load or mark notifications read', async t => {
     t.mock.method(auth.api, 'getSession', async () => null);

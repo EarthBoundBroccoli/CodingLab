@@ -26,7 +26,8 @@ const notificationSchema = new mongoose.Schema({
   isRead: { 
     type: Boolean, 
     default: false // For unread indicator badges next to the bell icon
-  }
+  },
+  contestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contest' }
 }, { 
   timestamps: true // Gives us `createdAt` automatically to sort from latest to oldest!
 });

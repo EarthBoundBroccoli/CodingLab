@@ -13,6 +13,7 @@ import cors from 'cors';
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 import { enforceAccountAccess } from "./middleware/accountAccess.js";
+import { startContestReminders } from "./utils/contestReminders.js";
 
 // Routes Imports
 import setterRoutes from "./routes/setterRoutes.js";
@@ -100,6 +101,7 @@ console.log('Connecting to MongoDB...');
 mongoose.connect(mongoUri)
   .then(() => {
     console.log('Successfully connected to MongoDB via Mongoose');
+    startContestReminders();
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error.message);

@@ -37,6 +37,7 @@ for (const fail of [false, true]) {
             assert.equal(stagedContest, true);
             assert.deepEqual(rows.map(row=>row.userId), ['real-auth-id','legacy-id']);
             assert.ok(rows.every(row=>row.type==='contest' && row.isRead===false && row.message.includes('ML')));
+            assert.ok(rows.every(row => row.contestId));
             if (fail) throw new Error('Simulated notification write failure');
         });
         t.mock.method(console, 'error', () => {});

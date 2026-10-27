@@ -98,6 +98,37 @@ test('contest closing during judging rejects the result without partial writes',
 });
 
 for (const [kind, handler] of [['practice', submitProblemSolution], ['contest', submitToContest]]) {
+    test(`${kind}: judging configuration errors retain their response shape without writes`, async t => {
+        const state = database(t);
+        t.mock.method(axios, 'post', () => assert.fail('Invalid configuration reached execution'));
+        const unsupported = req(ids[0]);
+        unsupported.body.language = 'unsupported';
+        const badLanguage = response();
+        await handler(unsupported, badLanguage);
+        assert.equal(badLanguage.statusCode, 400);
+        assert.deepEqual(badLanguage.body, { message: 'Unsupported language selection: unsupported' });
+
+        delete process.env.JDOODLE_CLIENT_SECRET;
+        const missingSecret = response();
+        await handler(req(ids[0]), missingSecret);
+        assert.equal(missingSecret.statusCode, 500);
+        assert.deepEqual(missingSecret.body, { message: 'Code execution service is currently misconfigured.' });
+        assert.equal(state.submissions.length, 0);
+        assert.equal(state.stats.totalSubmissionsCount, 0);
+    });
+
+    test(`${kind}: judging timeout preserves the unscored response`, async t => {
+        const state = database(t);
+        t.mock.method(axios, 'post', async () => { throw Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }); });
+        const res = response();
+        await handler(req(ids[0]), res);
+        assert.equal(res.statusCode, 504);
+        assert.deepEqual(res.body, { message: 'The judging service or test-data download timed out. This attempt was not scored. Please try again.' });
+        assert.equal(state.submissions.length, 0);
+        assert.equal(state.stats.totalSubmissionsCount, 0);
+        assert.equal(state.contest.participants[0].score, 0);
+    });
+
     test(`${kind}: wrapped syntax failures remain compilation errors`, async t => {
         database(t);
         t.mock.method(axios, 'post', async (_url, payload) => {

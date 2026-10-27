@@ -181,20 +181,6 @@ const Problems = () => {
                     </button>
                 </div>
 
-                {availableTags.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 pt-4" role="group" aria-label="Filter by topic">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 mr-1">Topics</span>
-                        <button onClick={() => setActiveTags([])} aria-pressed={activeTags.length === 0} className={`px-3 py-2 border-2 border-black text-xs font-bold cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${activeTags.length === 0 ? 'bg-black text-white' : 'bg-white text-black hover:bg-sky-100'}`}>All topics</button>
-                        {availableTags.slice(0, 8).concat(activeTags.filter(tag => !availableTags.slice(0, 8).includes(tag))).map(tag => (
-                            <button key={tag} onClick={() => toggleTag(tag)} aria-pressed={activeTags.includes(tag)} className={`inline-flex items-center gap-2 px-3 py-2 border-2 border-black text-xs font-bold cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${activeTags.includes(tag) ? 'bg-sky-300 text-sky-950 shadow-[2px_2px_0_0_black]' : 'bg-white text-slate-700 hover:bg-sky-100'}`}>
-                                {tag}{activeTags.includes(tag) && <X size={12} aria-hidden="true" />}
-                            </button>
-                        ))}
-                        {availableTags.length > 8 && <button onClick={() => setShowFilters(true)} className="px-3 py-2 text-xs font-bold underline underline-offset-4 cursor-pointer text-sky-800">More topics</button>}
-                        {activeTags.length > 1 && <span className="text-xs text-slate-500 font-medium">Matching all selected topics</span>}
-                    </div>
-                )}
-
                 {/* Floating Filter Box */}
                 {showFilters && (
                     <div className="absolute top-full mt-4 right-0 w-full md:w-[850px] bg-white neo-brutal p-10 animate-in fade-in slide-in-from-top-2 duration-200">

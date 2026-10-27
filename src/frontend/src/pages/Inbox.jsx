@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { getBackendURL, useSession } from "../lib/auth-client";
 import { loadNotificationInbox, markNotificationsRead, NOTIFICATIONS_CHANGED } from "../lib/notifications";
 import { Bell, Inbox as InboxIcon, AlertCircle, Check, Loader2 } from "lucide-react";
@@ -38,9 +39,14 @@ const Inbox = () => {
     if (isPending || !userId) return;
     const controller = new AbortController();
     activeRequest.current = controller;
+    let fetching = false;
+    const refresh = () => {
+    if (fetching) return;
+    fetching = true;
     loadNotificationInbox(getBackendURL(), {
       signal: controller.signal,
       onLoaded: data => {
+        setError("");
         setNotifications(data);
         setLoading(false);
         setMarkingRead(data.some(item => !item.isRead));
@@ -55,8 +61,11 @@ const Inbox = () => {
       if (controller.signal.aborted) return;
       setError("Could not load notifications. Please try again.");
       setLoading(false);
-    });
-    return () => controller.abort();
+    }).finally(() => { fetching = false; });
+    };
+    refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { clearInterval(timer); controller.abort(); };
   }, [userId, isPending, attempt]);
 
   const retryLoad = () => {
@@ -167,6 +176,11 @@ const Inbox = () => {
                       <p className="text-xs font-bold text-slate-700 leading-relaxed">
                         {notif.message}
                       </p>
+                      {notif.type === 'contest' && notif.contestId && (
+                        <Link to={`/contests/${encodeURIComponent(notif.contestId)}`} className="inline-block text-sm font-bold underline focus-visible:outline-2">
+                          View contest
+                        </Link>
+                      )}
 
                       {/* Explicit Rejection Reason / Note */}
                       {isRejected && notif.note && (

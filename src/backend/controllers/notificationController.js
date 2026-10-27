@@ -1,6 +1,7 @@
 import { Notification } from "../models/Notification.js";
 import { auth } from "../lib/auth.js";
 import mongoose from "mongoose";
+import { Contest } from "../models/Contest.js";
 
 // @desc    Get all notifications for the logged-in user
 // @route   GET /api/notifications
@@ -18,7 +19,16 @@ export const getNotifications = async (req, res) => {
         const notifications = await Notification.find({ userId: session.user.id })
             .sort({ createdAt: -1 });
 
-        res.json(notifications);
+        // Older announcements did not store a contest ID. Resolve only unambiguous names.
+        const legacyName = item => item.type === 'contest' && !item.contestId
+            ? /^A new contest "(.+)" has been created!$/.exec(item.message)?.[1] : null;
+        const names = [...new Set(notifications.map(legacyName).filter(Boolean))];
+        const contests = names.length ? await Contest.find({ name: { $in: names } }).select('_id name').lean() : [];
+        res.json(notifications.map(item => {
+            const matches = contests.filter(contest => contest.name === legacyName(item));
+            return matches.length === 1
+                ? { ...item.toObject(), contestId: matches[0]._id } : item;
+        }));
     } catch (error) {
         console.error('Error fetching notifications:', error);
         res.status(500).json({ message: 'Internal server error' });

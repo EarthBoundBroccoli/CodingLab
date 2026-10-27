@@ -1,4 +1,4 @@
-import axios from "axios";
+import { judgeSubmission, JudgingConfigurationError } from "../services/judgingService.js";
 import mongoose from "mongoose";
 import { Contest } from "../models/Contest.js";
 import { Problem } from "../models/Problem.js";
@@ -6,14 +6,12 @@ import { User } from "../models/User.js";
 import { Notification } from "../models/Notification.js";
 import { Submission } from "../models/Submission.js";
 import { StudentStats } from "../models/StudentStats.js";
-import { getJDoodleConfig } from "../lib/jdoodle.js";
 import { processRatingsForContest } from "../utils/contestRatings.js";
 import { rankContestParticipants } from "../utils/contestStandings.js";
 import { userIdentityFilter, getUserAuthId } from "../utils/userIdentity.js";
 import { PUBLIC_PROBLEM_FIELDS } from "../utils/publicProblem.js";
 import { validateContestSchedule } from "../utils/contestSchedule.js";
 import { withSubmissionTransaction } from "../utils/submissionPersistence.js";
-import { wrapCpp, wrapPython, wrapJava, createRuntimeMarker, readRuntimeFailure, readCompilationFailure } from "../utils/judgingRuntime.js";
 
 const validateContestProblems = async problems => {
     if (!Array.isArray(problems) || problems.length === 0) {
@@ -101,22 +99,6 @@ const populateContestUsers = async (contestDoc) => {
     return contestObj;
 };
 
-// Helper function to fetch content from Cloudinary URL if needed
-const fetchIfNeeded = async (urlOrContent) => {
-  if (urlOrContent && (urlOrContent.startsWith("http://") || urlOrContent.startsWith("https://"))) {
-    try {
-      console.log(`Fetching remote testcase content from: ${urlOrContent}`);
-      const response = await axios.get(urlOrContent, { responseType: 'text', timeout: 15000 });
-      return typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    } catch (err) {
-      console.error(`Failed to fetch remote testcase content: ${err.message}`);
-      throw new Error(`Failed to retrieve test case files from host.`);
-    }
-  }
-  return urlOrContent;
-};
-
-// C++ code wrapper
 // @desc    Get all contests (sorted by startTime desc)
 // @route   GET /api/contests
 // @access  Public
@@ -196,6 +178,7 @@ export const createContest = async (req, res) => {
                     title: "New Contest Created",
                     message: `A new contest "${newContest.name}" has been created!`,
                     type: "contest",
+                    contestId: newContest._id,
                     isRead: false
                 }));
 
@@ -420,120 +403,8 @@ export const submitToContest = async (req, res) => {
             return res.status(400).json({ message: "This problem is not part of this contest." });
         }
 
-        const { hiddenInput: rawHiddenInput, hiddenOutput: rawHiddenOutput, memoryLimit, timeLimit } = problem;
-
-        // Fetch actual text from Cloudinary/external links if needed
-        const hiddenInput = await fetchIfNeeded(rawHiddenInput);
-        const hiddenOutput = await fetchIfNeeded(rawHiddenOutput);
-
-        // 2. Prepare test cases
-        const splitDelimiter = /(?:\r?\n)?\/\/\/(?:\r?\n)?/;
-        const trimmedInput = hiddenInput.trim();
-        const trimmedOutput = hiddenOutput.trim();
-        
-        const inputsArray = trimmedInput.includes('///') ? trimmedInput.split(splitDelimiter) : [trimmedInput];
-        const outputsArray = trimmedOutput.includes('///') ? trimmedOutput.split(splitDelimiter) : [trimmedOutput];
-
-        const combinedInput = inputsArray.join('\n///\n');
-
-        // Wrap the code according to language
-        const runtimeMarker = createRuntimeMarker();
-        let wrappedCode = code;
-        if (language === 'cpp') {
-            wrappedCode = wrapCpp(code, runtimeMarker);
-        } else if (language === 'python') {
-            wrappedCode = wrapPython(code, runtimeMarker);
-        } else if (language === 'java') {
-            wrappedCode = wrapJava(code, runtimeMarker);
-        }
-
-        // JDoodle Configuration
-        const jdoodleConfig = getJDoodleConfig(language);
-        if (!jdoodleConfig) {
-            return res.status(400).json({ message: `Unsupported language selection: ${language}` });
-        }
-
-        const clientId = process.env.JDOODLE_CLIENT_ID;
-        const clientSecret = process.env.JDOODLE_CLIENT_SECRET;
-
-        if (!clientId || !clientSecret) {
-            console.error("JDoodle API Client ID or Client Secret is missing from environment config.");
-            return res.status(500).json({ message: "Code execution service is currently misconfigured." });
-        }
-
-        const payload = {
-            clientId,
-            clientSecret,
-            script: wrappedCode,
-            language: jdoodleConfig.language,
-            versionIndex: jdoodleConfig.versionIndex,
-            stdin: combinedInput,
-        };
-
-        console.log(`Sending batch execution request to JDoodle for contest problem: "${problem.title}" [${language}]...`);
-        const response = await axios.post("https://api.jdoodle.com/v1/execute", payload, { timeout: 30000 });
-
-        const jdoodleOutput = response.data.output || "";
-        const statusCode = response.data.statusCode;
-        const runtimeOutput = readRuntimeFailure(response.data, runtimeMarker);
-        const compilationOutput = readCompilationFailure(response.data, runtimeMarker);
-        const cpuTime = response.data.cpuTime;
-        const reportedMemory = response.data.memory;
-        const memory = Number(reportedMemory);
-        const hasMemory = (typeof reportedMemory === 'number' || (typeof reportedMemory === 'string' && reportedMemory.trim() !== ''))
-            && Number.isFinite(memory) && memory >= 0;
-        if ((statusCode === 0 || statusCode === 200) && !hasMemory && !runtimeOutput && !compilationOutput) {
-            throw new Error('Execution service did not report valid memory usage. Please retry.');
-        }
-
-        const cpuTimeMs = parseFloat(cpuTime) * 1000;
-        
-        let evaluationVerdict = '';
-        if (compilationOutput || (statusCode !== 0 && statusCode !== 200)) {
-            evaluationVerdict = 'CE';
-        } else if (cpuTimeMs > timeLimit) {
-            evaluationVerdict = 'TLE';
-        } else if (hasMemory && memory > memoryLimit * 1024) {
-            evaluationVerdict = 'MLE';
-        } else if (runtimeOutput) {
-            evaluationVerdict = 'RE';
-        } else {
-            const actualOutputs = jdoodleOutput.trim().split(splitDelimiter);
-            
-            let isMatch = true;
-            if (actualOutputs.length !== outputsArray.length) {
-                isMatch = false;
-            } else {
-                for (let i = 0; i < outputsArray.length; i++) {
-                    const expected = outputsArray[i].replace(/\r/g, '').trim();
-                    const actual = actualOutputs[i].replace(/\r/g, '').trim();
-                    if (expected !== actual) {
-                        isMatch = false;
-                        break;
-                    }
-                }
-            }
-            evaluationVerdict = isMatch ? 'AC' : 'WA';
-        }
-
-        let dbVerdict = 'Wrong Answer';
-        if (evaluationVerdict === 'AC') {
-            dbVerdict = 'Accepted';
-        } else if (evaluationVerdict === 'TLE') {
-            dbVerdict = 'Time Limit Exceeded';
-        } else if (evaluationVerdict === 'MLE') {
-            dbVerdict = 'Memory Limit Exceeded';
-        } else if (evaluationVerdict === 'RE') {
-            dbVerdict = 'Runtime Error';
-        } else if (evaluationVerdict === 'CE') {
-            dbVerdict = 'Compilation Error';
-        } else {
-            if (statusCode !== 0 && statusCode !== 200) {
-                dbVerdict = 'Compilation Error';
-            } else {
-                dbVerdict = 'Wrong Answer';
-            }
-        }
+        const { dbVerdict, evaluationVerdict, timeTaken, memoryUsed, compileOutput } =
+            await judgeSubmission({ problem, code, language });
 
         const participant = await withSubmissionTransaction(async session => {
             // Read fresh scores inside the transaction so concurrent submissions
@@ -607,9 +478,9 @@ export const submitToContest = async (req, res) => {
                 code,
                 language,
                 verdict: dbVerdict,
-                timeTaken: Math.round(cpuTimeMs) || 0,
-                memoryUsed: hasMemory ? memory : 0,
-                compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : ""
+                timeTaken,
+                memoryUsed,
+                compileOutput
         });
         await newSubmission.save({ session });
 
@@ -620,13 +491,16 @@ export const submitToContest = async (req, res) => {
             message: "Contest submission evaluated successfully",
             verdict: dbVerdict,
             evaluationVerdict,
-            timeTaken: Math.round(cpuTimeMs) || 0,
-            memoryUsed: hasMemory ? memory : 0,
-            compileOutput: dbVerdict === 'Runtime Error' ? runtimeOutput : dbVerdict === 'Compilation Error' ? compilationOutput || jdoodleOutput : "",
+            timeTaken,
+            memoryUsed,
+            compileOutput,
             score: participant.score,
             penalty: participant.penalty
         });
     } catch (error) {
+        if (error instanceof JudgingConfigurationError) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
         if (['ECONNABORTED', 'ETIMEDOUT'].includes(error.code)) {
             return res.status(504).json({ message: 'The judging service or test-data download timed out. This attempt was not scored. Please try again.' });
         }
