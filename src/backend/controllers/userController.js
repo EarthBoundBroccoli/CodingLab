@@ -61,6 +61,9 @@ export const updateUserSettings = async (req, res) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
         const { name, image, bio, universityId, socials } = req.body;
+        if (image !== undefined && typeof image !== 'string') {
+            return res.status(400).json({ message: "Avatar image URL must be a string." });
+        }
 
         const user = await User.findOne(userIdentityFilter(userId));
         if (!user) {
@@ -69,16 +72,7 @@ export const updateUserSettings = async (req, res) => {
 
         if (name !== undefined) user.name = name;
         if (image !== undefined) {
-            user.image = image;
-            try {
-                const db = User.db;
-                if (db) {
-                    await db.collection("user").updateOne(
-                        { email: user.email },
-                        { $set: { image: image, name: name || user.name } }
-                    );
-                }
-            } catch (e) {}
+            user.image = image.trim();
         }
         if (bio !== undefined) user.bio = bio;
 

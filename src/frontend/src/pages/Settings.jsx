@@ -17,6 +17,7 @@ const Settings = () => {
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [image, setImage] = useState("");
+  const [failedImage, setFailedImage] = useState(null);
   const [universityId, setUniversityId] = useState("");
   const [socials, setSocials] = useState({
     codeforces: "",
@@ -66,13 +67,14 @@ const Settings = () => {
       setSaving(true);
       await axios.patch(
         `${getBackendURL()}/api/users/settings`,
-        { name, bio, image, universityId, socials },
+        { name, bio, image: image.trim(), universityId, socials },
         { withCredentials: true }
       );
 
       try {
         if (authClient?.updateUser) {
-          await authClient.updateUser({ image, name });
+          const result = await authClient.updateUser({ image: image.trim(), name });
+          if (result.error) throw new Error(result.error.message);
         }
       } catch (err) {
         console.warn("Profile saved, but the auth profile refresh failed:", err);
@@ -187,12 +189,13 @@ const Settings = () => {
           {/* Live DP Avatar Preview Box */}
           <div className="flex items-center gap-6 p-4 border-2 border-black bg-slate-50">
             <div className="w-20 h-20 rounded-full border-4 border-black bg-emerald-400 overflow-hidden flex items-center justify-center text-3xl font-black text-black shadow-[3px_3px_0px_0px_black] shrink-0">
-              {image ? (
+              {image.trim() && failedImage !== image.trim() ? (
                 <img 
-                  src={image} 
+                  key={image.trim()}
+                  src={image.trim()}
                   alt="Avatar Preview" 
                   className="w-full h-full object-cover" 
-                  onError={(e) => { e.target.style.display = 'none'; }} 
+                  onError={() => setFailedImage(image.trim())}
                 />
               ) : (
                 <span>{name ? name[0].toUpperCase() : "U"}</span>
@@ -203,6 +206,11 @@ const Settings = () => {
               <p className="text-xs font-bold text-slate-500">
                 Paste any direct image URL (PNG/JPG/WebP) below. It will update your DP in the Navbar and Profile header.
               </p>
+              {image.trim() && failedImage === image.trim() && (
+                <p role="alert" className="text-xs font-bold text-red-700">
+                  This image could not be loaded. Check the URL or try another image host.
+                </p>
+              )}
             </div>
           </div>
 
@@ -224,7 +232,7 @@ const Settings = () => {
               <input
                 type="url"
                 value={image}
-                onChange={(e) => setImage(e.target.value)}
+                onChange={(e) => { setImage(e.target.value); setFailedImage(null); }}
                 className="input input-bordered w-full border-2 border-black font-bold text-sm rounded-none focus:outline-none focus:border-emerald-500"
                 placeholder="https://example.com/avatar.jpg"
               />
@@ -320,7 +328,6 @@ const Settings = () => {
                 <option value="cpp">C++20 (GCC 13.2)</option>
                 <option value="python">Python 3.12</option>
                 <option value="java">Java 21</option>
-                <option value="javascript" disabled>JavaScript (unavailable)</option>
               </select>
             </div>
 
@@ -359,8 +366,6 @@ const Settings = () => {
                 className="select select-bordered w-full border-2 border-black font-bold text-sm rounded-none focus:outline-none"
               >
                 <option value="standard">Standard Cursor</option>
-                <option value="vim" disabled>Vim (unavailable)</option>
-                <option value="emacs" disabled>Emacs (unavailable)</option>
               </select>
             </div>
           </div>

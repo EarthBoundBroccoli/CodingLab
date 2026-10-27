@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   role: { type: String, default: 'student' },
   institution: String,
+  image: { type: String, default: '' },
   university: { type: mongoose.Schema.Types.ObjectId, ref: 'University' },
   rating: { type: Number, default: 0 },
   banned: { type: Boolean, default: false },

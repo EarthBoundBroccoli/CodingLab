@@ -7,6 +7,18 @@ import { University } from '../models/University.js';
 import { Contest } from '../models/Contest.js';
 import { userIdentityFilter } from '../utils/userIdentity.js';
 
+test('avatar changes are tracked for persistence, including removal', () => {
+    const user = User.hydrate({
+        _id: '507f1f77bcf86cd799439011', name: 'Student', email: 'student@example.com'
+    });
+    const image = 'https://i.pinimg.com/474x/81/76/3e/81763edbda7fa57b57f36bfc0c05840b.jpg';
+    user.image = image;
+    assert.equal(user.isModified('image'), true);
+    assert.equal(user.toObject().image, image);
+    user.image = '';
+    assert.equal(user.toObject().image, '');
+});
+
 test('settings load for string auth IDs with rating and peak values', async t => {
     const id = 'auth-user-not-an-object-id';
     const user = { id, _id: '507f1f77bcf86cd799439011', name: 'Student', email: 'student@example.com' };
