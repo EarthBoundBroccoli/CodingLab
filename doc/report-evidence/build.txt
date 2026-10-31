@@ -1,0 +1,26 @@
+
+> build
+> npm run build --prefix frontend
+
+
+> client@0.0.0 build
+> vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+/*! 🌼 daisyUI 5.5.19 */
+✓ 2534 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.78 kB │ gzip:   0.43 kB
+dist/assets/CodingLabLogo-BfQXr9wd.png    188.61 kB
+dist/assets/index-BK9cNC9E.css            152.69 kB │ gzip:  24.53 kB
+dist/assets/index-B7KpOC3o.js           1,043.21 kB │ gzip: 282.76 kB
+
+✓ built in 1.38s
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

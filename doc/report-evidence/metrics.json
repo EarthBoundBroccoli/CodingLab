@@ -1,0 +1,87 @@
+{
+  "scope": "backend runtime JS and frontend/src JS/JSX; excludes tests, scripts, seed, build config, dependencies and CSS; physical inclusive source spans including comments/blanks; nested functions counted separately",
+  "functions": {
+    "count": 916,
+    "average": 18.74,
+    "maximum": 670,
+    "median": 3
+  },
+  "classes": {
+    "count": 1,
+    "average": 7,
+    "maximum": 7,
+    "median": 7
+  },
+  "modules": {
+    "count": 105,
+    "average": 131.87,
+    "maximum": 678,
+    "median": 63
+  },
+  "totalModuleLines": 13846,
+  "largestFunctions": [
+    {
+      "file": "code/frontend/src/pages/AddProblem.jsx",
+      "name": "AddProblem",
+      "line": 7,
+      "lines": 670,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/AdminDashboard.jsx",
+      "name": "AdminDashboard",
+      "line": 77,
+      "lines": 553,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/admin/AdminContests.jsx",
+      "name": "AdminContests",
+      "line": 63,
+      "lines": 537,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/admin/AdminProblemRequests.jsx",
+      "name": "AdminProblemRequests",
+      "line": 125,
+      "lines": 482,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/ContestDetail.jsx",
+      "name": "ContestDetail",
+      "line": 43,
+      "lines": 473,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/Settings.jsx",
+      "name": "Settings",
+      "line": 9,
+      "lines": 436,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/Support.jsx",
+      "name": "Support",
+      "line": 15,
+      "lines": 351,
+      "type": "ArrowFunctionExpression"
+    },
+    {
+      "file": "code/frontend/src/pages/admin/AdminSupport.jsx",
+      "name": "AdminSupport",
+      "line": 16,
+      "lines": 345,
+      "type": "ArrowFunctionExpression"
+    }
+  ],
+  "classDetails": [
+    {
+      "file": "code/backend/services/judgingService.js",
+      "name": "JudgingConfigurationError",
+      "lines": 7
+    }
+  ]
+}
