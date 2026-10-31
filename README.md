@@ -1,66 +1,74 @@
 # CodingLab
 
-## Run the project
+CodingLab is a React and Node.js coding-practice and contest platform.
 
-### Prerequisites
+## Repository layout
 
-- Node.js installed (recommended version 18+)
-- npm available from the terminal
+```text
+CodingLab/
+|-- code/                  # Application source and Node.js workspace
+|   |-- backend/           # Express API
+|   `-- frontend/          # React/Vite client
+|-- doc/                   # Submission documents (currently empty)
+`-- README.md
+```
 
-### Backend
+The final submission documents should use these paths:
 
-1. Open a terminal and go to the backend folder:
+- `doc/srs.pdf`
+- `doc/design.pdf`
+- `doc/final-presentation.*`
+- `doc/final-report.pdf`
 
-   ```bash
-   cd src/backend
-   ```
+## Prerequisites
 
-2. Install backend dependencies:
+- Node.js 18 or newer
+- npm
+- MongoDB, or a configured remote MongoDB connection
 
-   ```bash
-   npm install
-   ```
+## Install
 
-3. Start the backend server in development mode:
+From the repository root:
 
-   ```bash
-   npm run dev
-   ```
+```bash
+cd code
+npm install
+npm run install:all
+```
 
-4. Or start the backend server normally:
+Copy `code/backend/.env.example` to `code/backend/.env` and fill in the required values. If the frontend needs local environment overrides, copy `code/frontend/.env.example` to `code/frontend/.env`.
 
-   ```bash
-   npm start
-   ```
+## Run
 
-### Frontend
+Start the backend and frontend together from `code/`:
 
-1. Open a second terminal and go to the frontend folder:
+```bash
+npm start
+```
 
-   ```bash
-   cd src/frontend
-   ```
+The frontend URL is printed by Vite (normally `http://localhost:5173`). The backend can also be run independently with `npm run dev:backend`, and the frontend with `npm run dev:frontend`.
 
-2. Install frontend dependencies:
+## Build
 
-   ```bash
-   npm install
-   ```
+Build the production frontend from `code/`:
 
-3. Start the frontend development server:
+```bash
+npm run build
+```
 
-   ```bash
-   npm run dev
-   ```
+The generated assets are written to `code/frontend/dist/`.
 
-4. Open the app in a browser at the URL shown by Vite, usually:
+## Test
 
-   ```text
-   http://localhost:5173/
-   ```
+Run both backend and frontend tests from `code/`:
 
-### Notes
+```bash
+npm test
+```
 
-- Run backend and frontend in separate terminals.
-- The backend script uses `nodemon` for `npm run dev`.
-- If the backend uses environment variables, create a `.env` file in `src/backend` as needed.
+To run one suite independently:
+
+```bash
+npm run test --prefix backend
+npm run test --prefix frontend
+```

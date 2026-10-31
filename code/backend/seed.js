@@ -566,7 +566,7 @@ async function runSeed() {
 
 
 
-// Seeding no longer runs automatically on server start. To seed the database, uncomment the following line and run `node src/backend/seed.js` manually.
+// Seeding no longer runs automatically on server start. To seed the database, uncomment the following line and run `node code/backend/seed.js` manually.
 
 runSeed().catch(err => {
     console.error("Seeding error:", err);

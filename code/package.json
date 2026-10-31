@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "build": "npm run build --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "start": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "test": "npm run test --prefix backend && npm run test --prefix frontend"
+  },
+  "dependencies": {
+    "agy": "^0.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

@@ -16,7 +16,7 @@ CodingLab is designed to be a reliable, high-performance platform for students t
 ---
 
 ## 🛠️ Technology Stack
-### Frontend (`src/frontend`)
+### Frontend (`code/frontend`)
 - **Framework:** React.js (v19)
 - **Bundler:** Vite
 - **Styling:** Tailwind CSS (v4) + PostCSS
@@ -27,7 +27,7 @@ CodingLab is designed to be a reliable, high-performance platform for students t
 - **Icons:** Lucide React (with custom inline SVG fallbacks for SSO to prevent Lucide resolution bugs)
 - **Editor:** Monaco Editor (integrated into coding workspace)
 
-### Backend (`src/backend`)
+### Backend (`code/backend`)
 - **Runtime:** Node.js (v18+ / v20+)
 - **Server Framework:** Express.js (configured as ES Modules)
 - **Database:** MongoDB with Mongoose (local fallback: `mongodb://127.0.0.1:27017/codinglab`)
@@ -45,7 +45,7 @@ SPL-2/
 │   ├── SPL-2 Project Proposal .pdf
 │   ├── SPL-2 features.pdf
 │   └── spl2 .pdf
-└── src/                        # Source Code
+└── code/                       # Source code and Node.js workspace
     ├── GEMINI.md               # Developer setup notes & conventions
     ├── plan.md                 # Implementation roadmap (Phased plan)
     ├── backend/                # Backend API Server
@@ -87,7 +87,7 @@ SPL-2/
    - Advanced filters by difficulty, topic tags dynamically loaded from the database, and keyword search.
    - Home page features top 10 most recently approved live problems.
 4. **Markdown Support:**
-   - Lightweight, dependency-free Markdown parser implemented in frontend (`src/frontend/src/lib/markdown.js`).
+   - Lightweight, dependency-free Markdown parser implemented in frontend (`code/frontend/src/lib/markdown.js`).
    - Integrated live write vs preview tabbed area in Problem Studio for setters.
 5. **Become Problem Setter:**
    - Form-based setter elevation request. Automatic sandbox verification logic implemented on backend for evaluation.
@@ -150,7 +150,7 @@ To preserve the unique look-and-feel of CodingLab, follow these conventions:
 ---
 
 ## 💻 Development Commands
-### Backend (`src/backend`)
+### Backend (`code/backend`)
 - Run development server (with nodemon):
   ```bash
   npm run dev
@@ -160,7 +160,7 @@ To preserve the unique look-and-feel of CodingLab, follow these conventions:
   npm start
   ```
 
-### Frontend (`src/frontend`)
+### Frontend (`code/frontend`)
 - Run development server (Vite):
   ```bash
   npm run dev

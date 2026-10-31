@@ -10,20 +10,20 @@
 ---
 
 ## Directory Structure
-- **[index.js](file:///D:/Code%20folder/SPL-2/src/backend/index.js):** Entry point. Sets up Express, CORS policies, global middleware, Better Auth splat routes, database connections, and mounts modular routes.
-- **[routes/](file:///D:/Code%20folder/SPL-2/src/backend/routes):** Defines endpoints and maps them to controllers.
-  - [setterRoutes.js](file:///D:/Code%20folder/SPL-2/src/backend/routes/setterRoutes.js): Routes for setter registration and status checking.
-  - [problemRoutes.js](file:///D:/Code%20folder/SPL-2/src/backend/routes/problemRoutes.js): Routes for problem management.
-- **[controllers/](file:///D:/Code%20folder/SPL-2/src/backend/controllers):** Express route handlers containing business and validation logic.
-  - [setterController.js](file:///D:/Code%20folder/SPL-2/src/backend/controllers/setterController.js): Handles registration requests and status updates.
-  - [problemController.js](file:///D:/Code%20folder/SPL-2/src/backend/controllers/problemController.js): Handles creating coding problems.
-- **[models/](file:///D:/Code%20folder/SPL-2/src/backend/models):** Mongoose database schemas.
+- **`index.js`:** Entry point. Sets up Express, CORS policies, global middleware, Better Auth splat routes, database connections, and mounts modular routes.
+- **`routes/`:** Defines endpoints and maps them to controllers.
+  - `setterRoutes.js`: Routes for setter registration and status checking.
+  - `problemRoutes.js`: Routes for problem management.
+- **`controllers/`:** Express route handlers containing business and validation logic.
+  - `setterController.js`: Handles registration requests and status updates.
+  - `problemController.js`: Handles creating coding problems.
+- **`models/`:** Mongoose database schemas.
   - `User.js`: Schema for users and roles.
   - `SetterRequest.js`: Schema tracking problem setter applications.
   - `Problem.js`: Schema for coding challenges, test cases, and constraints.
-- **[lib/](file:///D:/Code%20folder/SPL-2/src/backend/lib):** Core integrations.
-  - [auth.js](file:///D:/Code%20folder/SPL-2/src/backend/lib/auth.js): Better Auth adapter configuration.
-  - [cloudinary.js](file:///D:/Code%20folder/SPL-2/src/backend/lib/cloudinary.js): Configures Cloudinary and exports `uploadTextFile` for uploading raw text testcases.
+- **`lib/`:** Core integrations.
+  - `auth.js`: Better Auth adapter configuration.
+  - `cloudinary.js`: Configures Cloudinary and exports `uploadTextFile` for uploading raw text testcases.
 
 ---
 
@@ -55,7 +55,7 @@
 ---
 
 ## Configuration & Local Setup
-1. Copy [backend/.env.example](file:///D:/Code%20folder/SPL-2/src/backend/.env.example) to `.env`.
+1. Copy `code/backend/.env.example` to `code/backend/.env`.
 2. Configure your environment keys (Atlas URI, GITHUB/GOOGLE keys, and secrets).
 3. **Database Fallback:** If `MONGODB_URI` is not configured, the app defaults to `mongodb://127.0.0.1:27017/codinglab` (requires local MongoDB server running).
 4. **IP Whitelisting:** If connecting to MongoDB Atlas, ensure your IP is whitelisted in Atlas Network Access.
@@ -63,6 +63,6 @@
 ---
 
 ## Development Commands
-In `src/backend`:
+In `code/backend`:
 - **Start Production Server:** `npm start` (runs `node index.js`)
 - **Start Development Server:** `npm run dev` (runs `nodemon index.js` with hot-reload)
