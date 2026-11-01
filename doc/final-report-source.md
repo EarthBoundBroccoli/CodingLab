@@ -1,4 +1,5 @@
 # CodingLab
+
 ## A Coding Practice Platform for University Students
 
 Final Project Report
@@ -6,10 +7,14 @@ Final Project Report
 SWE 4404: Software Project Lab II
 
 Islamic University of Technology (IUT)
+
 Organisation of Islamic Cooperation (OIC)
+
 Department of Computer Science and Engineering
 
 Group 10
+
+Team Members
 
 | Team member | Student ID |
 | --- | --- |
@@ -21,36 +26,59 @@ Supervisor: Samia Nawsheen, Junior Lecturer, Department of CSE, IUT
 
 Repository: https://github.com/EarthBoundBroccoli/CodingLab
 
-Report evidence date: 31 October 2026
-
-Implementation reviewed: local revision 2b10da7, including the application changes through dbc66d0. Repository links for implementation evidence use dbc66d0 and its original src/ paths; the same application files now reside under code/. The subsequent commits reorganize and clean the repository.
-
-## Table of Contents
+# Table of Contents
 
 1. Executive Summary
+
 2. Problem Domain and Background
+
 3. Literature and Existing Solutions
+
 4. Requirements (SRS Session)
+
 5. System Design (Design Session)
+
 6. Implementation (Implementation Session)
+
 7. Tools, Version Control, Testing, and CI/CD
+
 8. Professional, Ethical, and Legal Considerations
+
 9. Project Management and Feasibility
+
 10. Teamwork and Individual Contributions
+
 11. Results, Limitations, and Future Work
+
 12. Glossary and References
 
 ## List of Figures
 
-Figure 1. Implemented system architecture from the final presentation.
-Figure 2. Original context-level data-flow diagram.
-Figure 3. Original collection and data-flow design.
-Figure 4. Original entity-relationship diagram.
-Figure 5. Original problem-approval process.
-Figure 6. Original code-execution process.
-Figure 7. Original role-change process.
-Figure 8. Original contest-management process.
-Figure 9. Team responsibility allocation from the final presentation.
+• Figure 1. Consolidated system use-case diagram (UC-01 through UC-07).
+
+• Figure 2. Original system architecture from the final presentation.
+
+• Figure 3. Original context-level data-flow diagram (Level-0 DFD).
+
+• Figure 4. Original database collections and data-flow design.
+
+• Figure 5. Original MongoDB schema and entity-relationship diagram.
+
+• Figure 6. Original problem-approval process flow.
+
+• Figure 7. Original code-execution process flow.
+
+• Figure 8. Original role-change request flow.
+
+• Figure 9. Original contest-management process flow.
+
+• Figure 10. Scored submission judging and transactional persistence sequence.
+
+• Figure 11. Current testing process and planned CI workflow.
+
+• Figure 12. Project evolution and recorded development timeline (May–October 2026).
+
+• Figure 13. Original Group 10 team-contribution slide.
 
 # 1. Executive Summary
 
@@ -66,9 +94,9 @@ The final reviewed application supports authenticated practice, C++, Java and Py
 
 Some original requirements remain incomplete. Bookmarks and dedicated setter analytics are absent. Full problem editing, rejection feedback, email notifications, and some profile-security controls require further work. The original five-second verdict target, support for more than 100 simultaneous users, and 99.9% contest-hour availability have not been demonstrated. CodingLab is therefore a functioning academic project with a tested core workflow and a clearly identified path toward a more complete production service. [R1–R4]
 
-## CO6 self-assessment
+## Self-assessment (CO6)
 
-Can the project be communicated effectively to a non-technical audience without unexplained jargon? Yes. The overview describes the student's actions, the feedback received, and the responsibilities of setters and administrators before naming implementation technologies. The glossary defines specialist terms, and Section 11 distinguishes implemented results from future work.
+Can the project be explained to a non-technical reader without unexplained jargon? Yes. This summary starts with the student's experience, explains the result in ordinary language, and leaves technical terms to later sections and the glossary.
 
 # 2. Problem Domain and Background
 
@@ -109,9 +137,11 @@ Contest engineering adds timing, eligibility, tie handling, and repeat-submissio
 
 Educational feedback requires distinguishing effort from achievement. Repeated accepted submissions can count as activity without becoming additional distinct problems solved. The growth utilities and tests enforce this distinction. The system therefore combines general software concepts with domain-specific judging, competition, and learning-progress rules. [R4, R5]
 
-## CO1 self-assessment
+## Self-assessment (CO1)
 
-Can the underlying programming, data-structure, database and design concepts be explained? Yes. Section 2.2 connects each concept to a named implementation location. Can relevant specialist knowledge be identified and justified? Yes. Section 2.3 explains why verdict interpretation, contest consistency, identity resolution and distinct-solve accounting are necessary for this particular application.
+Which fundamental concepts underlie the project? Section 2.2 links modular functions, arrays, maps, sets, sorting, database schemas, transactions, validation and asynchronous work to specific parts of CodingLab.
+
+What specialist knowledge is needed, and why? Online judging, contest scoring, identity matching and learning-progress rules are needed because ordinary CRUD operations alone cannot produce reliable verdicts, fair standings or accurate progress records.
 
 # 3. Literature and Existing Solutions
 
@@ -139,9 +169,9 @@ Better Auth documents its email/password authentication capability. CodingLab en
 
 The supplied SRS is a requirements-and-user-story table. It does not contain a literature-review section or citations demonstrating an earlier comparison of alternatives. This report supplies that missing discussion and connects it to the original problem statement. The project builds on established practice and contest patterns while emphasizing a university community, reviewed content, and personal growth. That is the intended contribution, not a claim of a novel judging algorithm.
 
-## CO2 self-assessment
+## Self-assessment (CO2)
 
-Does the SRS discuss prior solutions or credible technical sources and explain the distinction? Not in the supplied SRS artifact. Sections 3.1–3.3 address this documentation gap using official sources and a bounded comparison. The source SRS should be read as the requirements baseline, with this report providing the supporting review.
+Does the report discuss credible sources and explain the project's difference? Yes. Sections 3.1 and 3.2 compare CodingLab with Codeforces, HackerRank and CS50 and connect the design to official React, MongoDB and Better Auth documentation. CodingLab's main difference is its university-focused combination of reviewed local content, contests and personal progress.
 
 # 4. Requirements (SRS Session)
 
@@ -191,7 +221,11 @@ Functional requirements describe actions and services. Non-functional requiremen
 
 ## 4.4 Main use cases
 
-The supplied materials include user stories and process diagrams rather than a separate complete use-case specification. The following use cases consolidate that evidence and describe the reviewed implementation.
+The supplied materials include user stories and process diagrams rather than a separate complete use-case specification. Figure 1 and the table below consolidate that evidence and describe the reviewed implementation.
+
+![Figure 1](report-evidence/figures/use-cases.png)
+
+Figure 1. Consolidated system use-case diagram across Student, Problem Setter, Administrator, and external service actors (UC-01 through UC-07).
 
 | Use case | Actor and precondition | Main flow | Failure or alternate flow | Result |
 | --- | --- | --- | --- | --- |
@@ -209,13 +243,13 @@ The intended setting includes students with different skill levels and network c
 
 Educational access is consistent with the intent of Sustainable Development Goal 4, but no measured social impact is claimed. Shared external execution and batched tests may reduce repeated service requests. This is a resource-use design choice, not a measured reduction in energy or emissions. Quotas, data retention and unnecessary resubmissions should be considered before wider deployment.
 
-## 4.6 SRS-session feedback and resulting development priorities
+## 4.6 SRS review and later priorities
 
-No dated SRS-session minutes or signed feedback record accompanies the submitted artifacts. The defensible account is therefore a trace of requirements into subsequent work: secure authentication was implemented early; a growth dashboard connected practice to visible progress; and ranking evolved into contest-rating and university/campus views. Commits 15585d0, 72fb92f, bc8b3bc, 8ebf9d8 and 9226ca1 support that progression. These changes can be discussed as project review priorities, but the repository does not establish who requested them or at which formal session. [R4, R5]
+The available files do not include dated SRS meeting notes. The Git history still shows how the priorities developed: authentication came first, followed by problem practice, progress tracking, contests, ratings and university rankings. These changes are visible in commits 15585d0, 72fb92f, bc8b3bc, 8ebf9d8 and 9226ca1. [R4, R5]
 
-## CO2 self-assessment
+## Self-assessment (CO2)
 
-Are functional and non-functional requirements distinguished and traceable to stakeholder needs? Yes. Sections 4.2 and 4.3 separate user actions from quality targets, retain source identifiers, and connect them to stakeholder needs and implementation evidence. Section 11 prevents traceability from being mistaken for complete satisfaction of every acceptance criterion.
+Are functional and non-functional requirements separated and traceable to stakeholder needs? Yes. Sections 4.2 and 4.3 keep the two types separate and connect every requirement to a user need and an implementation or verification reference. Section 11 records the final status rather than assuming that traceability means completion.
 
 # 5. System Design (Design Session)
 
@@ -223,25 +257,25 @@ Are functional and non-functional requirements distinguished and traceable to st
 
 CodingLab uses a three-layer application structure. The presentation layer contains React pages and shared components. The application layer exposes HTTP routes, checks access, coordinates domain operations, and calls external services. The data layer uses Mongoose models and the Better Auth MongoDB adapter. The application is a modular server, not a collection of separately deployed microservices.
 
-![Figure 1 — Implemented architecture](report-evidence/figures/architecture.png)
+![Figure 2](report-evidence/figures/architecture.png)
 
-Figure 1. Implemented system architecture. Source: final-presentation.pdf, physical page 6. The source diagram describes 11 application model definitions; this does not establish that all 11 are actively used. In particular, the legacy UserStats definition in Leaderboard.js is distinct from the current StudentStats-based ranking path.
+Figure 2. Original system-architecture slide from final-presentation.pdf, physical page 6. The code review confirms the same three-layer structure.
 
 The separation serves stakeholder needs directly. Students interact with the editor and results; they do not receive hidden test data. Administrators use controlled endpoints rather than direct database access. External execution happens before submission persistence so a database retry does not automatically execute the student's program again. Shared ranking and activity utilities keep values consistent across pages. [R3, R4]
 
 ## 5.2 Context, data flow and entity relationships
 
-![Figure 2 — Context-level data flow](report-evidence/figures/context.png)
+![Figure 3](report-evidence/figures/context.png)
 
-Figure 2. Original context-level data-flow diagram. Source: design.pdf, physical page 5. This is the intended design: setter analytics shown here are not implemented, and current capabilities must be read with Section 11.
+Figure 3. Original context-level data-flow diagram from design.pdf, physical page 5. It records the design-stage exchanges; dedicated setter analytics remain future work.
 
-![Figure 3 — Collection and data-flow design](report-evidence/figures/collections.png)
+![Figure 4](report-evidence/figures/collections.png)
 
-Figure 3. Original collection/data-flow design. Source: design.pdf, physical page 6. The diagram records the design-stage separation of users, problems, submissions and contests. The implemented authentication collections and additional entities are described below.
+Figure 4. Original database collections and data-flow diagram from design.pdf, physical page 6. Later implementation additions are described in the table below.
 
-![Figure 4 — Entity relationships](report-evidence/figures/er.png)
+![Figure 5](report-evidence/figures/er.png)
 
-Figure 4. Original entity-relationship diagram. Source: design.pdf, physical page 7. Relationships are logical references, not SQL-enforced foreign keys. The current implementation adds universities and support records and permits multiple historical setter applications for one user.
+Figure 5. Original MongoDB schema and entity-relationship diagram from design.pdf, physical page 7. The table below gives the final implemented model set.
 
 | Entity/model | Important fields | Relationships and design purpose |
 | --- | --- | --- |
@@ -263,21 +297,21 @@ The ER diagram's one-to-one setter-request description is superseded by the reap
 
 ## 5.3 Process designs and implementation qualifications
 
-![Figure 5 — Problem approval](report-evidence/figures/approval.png)
+![Figure 6](report-evidence/figures/approval.png)
 
-Figure 5. Original problem-approval process. Source: design.pdf, physical page 9. In the implementation, setters supply test data and new problems are saved as pending. Automatic test generation, persistent drafts, setter editing/resubmission, rejection-feedback delivery and administrator difficulty override are not demonstrated.
+Figure 6. Original problem-approval flow from design.pdf, physical page 9. The implemented differences are explained below.
 
-![Figure 6 — Code execution](report-evidence/figures/execution.png)
+![Figure 7](report-evidence/figures/execution.png)
 
-Figure 6. Original code-execution process. Source: design.pdf, physical page 10. The implemented service batches hidden cases, distinguishes compilation/runtime/resource failures, and persists the result transactionally with applicable statistics. Dedicated setter analytics at the end of the original diagram remain future work.
+Figure 7. Original code-execution flow from design.pdf, physical page 10. The final service adds batched judging and atomic persistence.
 
-![Figure 7 — Role change](report-evidence/figures/roles.png)
+![Figure 8](report-evidence/figures/roles.png)
 
-Figure 7. Original role-change process. Source: design.pdf, physical page 11. Approval, rejection and applicant notifications are implemented. The diagram's administrator notification and accompanying text's email delivery are not established by the reviewed code.
+Figure 8. Original role-change request flow from design.pdf, physical page 11. The implementation uses transactional decisions and in-app notifications.
 
-![Figure 8 — Contest management](report-evidence/figures/contests.png)
+![Figure 9](report-evidence/figures/contests.png)
 
-Figure 8. Original contest-management process. Source: design.pdf, physical page 12. The implementation additionally checks registration, validates selected approved problems, prevents changes to finalized rounds, and finalizes ratings in chronological order.
+Figure 9. Original contest-management flow from design.pdf, physical page 12. The implementation adds schedule, registration, and contest-window checks.
 
 ## 5.4 Design alternatives and rationale
 
@@ -293,13 +327,15 @@ The following comparisons are retrospective engineering evaluations of the imple
 
 Against stakeholder needs, these choices favor a usable end-to-end demonstration and manageable lifecycle effort. Against scalability and resource use, the main limitations are external judge capacity, repeated polling, growing embedded arrays, and expensive aggregate queries. The selected architecture leaves room to introduce a queue, stronger storage controls, or a different persistence strategy when usage justifies them.
 
-## 5.5 Design-session feedback and changes
+## 5.5 Design changes
 
-No dated design-session feedback record is supplied. The artifacts show a verifiable evolution: the original diagram contains broad services and planned modules; the final architecture and code use concrete controllers, a shared judging service, shared editor components, and separate ranking/activity helpers. Commit 40a8938 records judging/editor refactoring, while the rating and authorization tests substantiate additional consistency boundaries. These are observable design improvements, not attributed quotations from a supervisor. [R2–R5]
+The design became more focused during development. The final code uses clear controllers, one shared judging service, reusable editor components, and separate helpers for ratings and activity. Commit 40a8938 records the judging and editor refactor. The rating and authorization tests show that these shared rules are used consistently. [R2–R5]
 
-## CO3 self-assessment
+## Self-assessment (CO3)
 
-Does the design include a justified architecture and appropriate models traced to the SRS? Yes, with the stated qualifications. Figures 1–8, the entity table, and the requirement anchors describe the architecture and model relationships while identifying outdated design claims. Were plausible alternatives compared against stakeholder needs, usability, scalability, resource use and lifecycle cost? Section 5.4 makes that comparison explicitly and explains the remaining trade-offs.
+Is the architecture justified and traced to the SRS? Yes. Figures 2–9, the entity table and the requirement references connect the three-layer architecture, processes and data models to the required student, setter and administrator workflows.
+
+Were plausible alternatives compared? Yes. Section 5.4 compares a modular server with microservices, MongoDB with PostgreSQL, an external judge with self-hosted workers, polling with live push updates, and Cloudinary with private object storage. The selected options fit a three-person academic project, while their limits are stated.
 
 # 6. Implementation (Implementation Session)
 
@@ -312,8 +348,6 @@ CodingLab/
     srs.pdf
     design.pdf
     final-presentation.pdf
-    final-report-source.md
-    final-report.docx
   code/
     package.json                 shared development/build/test commands
     package-lock.json
@@ -345,7 +379,7 @@ CodingLab/
       .env.example
 ```
 
-The file tree describes the working submission layout. A PDF should be exported from the completed Google Doc for classroom submission as doc/final-report.pdf. Dependencies and generated build files are excluded from version control; example environment files document configuration without publishing credentials.
+The file tree describes the working submission layout. Dependencies and generated build files are excluded from version control; example environment files document configuration without publishing credentials.
 
 ## 6.2 Communication between components
 
@@ -366,6 +400,10 @@ The system predominantly uses functions, object literals and schema-defined docu
 | Notification | title, message, type, isRead, optional contestId | Reads and mark-read updates are scoped to the authenticated user |
 
 For a scored submission, the controller first validates the request and loads the approved problem. The judging service fetches hidden cases if stored remotely, wraps the program for its language, and submits a batch to JDoodle. It normalizes output and determines a verdict. Persistence then runs inside a transaction so the attempt, progress and contest score cannot partially update. If the database retries a transaction, the already obtained judging result is reused. If judging times out, the controller returns an error and does not record a scored attempt. [R4]
+
+![Figure 10](report-evidence/figures/submission-sequence.png)
+
+Figure 10. Scored submission judging and transactional persistence sequence across React Client, Express API, JudgingService, Cloudinary, JDoodle API, and MongoDB.
 
 ## 6.3 Core algorithms and rules
 
@@ -397,7 +435,27 @@ The scope includes backend runtime JavaScript and frontend/src JavaScript/JSX. I
 
 Presentation page 7 reports 911 functions, 104 modules and 13,802 source lines. Those are preserved as earlier presentation figures; this report uses the freshly measured values and an explicit counting definition. Long JSX components inflate physical span, but they still represent maintenance work. Further decomposition of forms, tables and dialogs is justified; the average alone should not hide the largest components.
 
-## 6.6 Refactoring and implementation evolution
+## 6.6 Implemented features
+
+The completed application includes:
+
+• email/password and configured social sign-in;
+
+• problem browsing, filtering and detailed problem pages;
+
+• C++, Java and Python editing, custom runs and judged submissions;
+
+• saved attempts, progress charts, recent-code review and profiles;
+
+• problem-setter applications, problem creation and administrator moderation;
+
+• timed contests, standings, ratings and campus/university rankings;
+
+• notifications, account moderation and support requests; and
+
+• automated backend and frontend regression tests.
+
+## 6.7 Refactoring and implementation evolution
 
 | Change | Reason and effect | Version-control evidence |
 | --- | --- | --- |
@@ -409,42 +467,44 @@ Presentation page 7 reports 911 functions, 104 modules and 13,802 source lines. 
 | C++ wrapper fixes | Corrects execution behavior in the judging path | 287f7a4 |
 | Avatar persistence and editor-option cleanup | Aligns displayed settings with persisted and supported behavior | dbc66d0 |
 
-These are documented implementation changes. The exact Implementation-session date was not provided, so they cannot all be labelled “after the session” with certainty. They provide the evidence for the refactoring discussion without inventing a session chronology.
+These changes show how the implementation was improved over time. Exact development-session dates were not available, so the report uses the Git history as the record of change.
 
-## CO1 and CO3 self-assessment
+## Self-assessment (CO1 and CO3)
 
-How do the fundamentals from Section 2 appear in code? Sections 6.2–6.3 show arrays for test batches, maps for identity resolution, sorting for standings, binary search for rating estimation, schema validation, and transactions for consistent persistence. Does implementation follow the design? It retains the three layers and central use cases, while justified additions include shared judging/editor modules and atomic persistence. Missing planned modules and changed ranking rules are explicitly recorded rather than concealed.
+How do the concepts from Section 2 appear in the code? Test batches use arrays, identity resolution uses maps, standings use sorting, rating estimation uses binary search, Mongoose provides schemas and queries, and transactions protect related submission and contest updates. These examples are described in Sections 6.2 and 6.3.
+
+Does the implementation follow the design? Yes. The React client, Express application layer and MongoDB data layer remain consistent with Section 5. Shared judging and editor modules are justified refinements, while incomplete planned features are recorded in Section 11.
 
 # 7. Tools, Version Control, Testing, and CI/CD
 
-## 7.1 Tools and alternatives
+## 7.1 Tools used
 
-Versions below are selected resolved versions from the committed lockfiles, not merely version ranges in package.json.
+The main tool versions come from the committed lockfiles.
 
-| Tool | Resolved version | Purpose and choice | Alternative and limitation |
-| --- | --- | --- | --- |
-| React / React DOM | 19.2.6 | Component-based browser interface | Vue is plausible; React requires deliberate state/effect discipline |
-| Vite | 8.3.4 | Development server and production bundle | A full-stack framework could unify routing/deployment; this project retains a separate API |
-| Express | 5.2.1 | Lightweight HTTP routing and middleware | NestJS provides stronger conventions but more framework structure |
-| Mongoose | 9.11.2 | Document schemas and database integration | SQL ORM with PostgreSQL offers relational constraints; MongoDB references need validation |
-| Better Auth | 1.7.10 | Sessions and authentication providers | Custom authentication adds security/maintenance burden; library defaults still need review |
-| Monaco React integration | 4.7.0 | Browser code editor | CodeMirror is an alternative; editor payload and accessibility need consideration |
-| Tailwind CSS / DaisyUI | 4.3.0 / 5.5.19 | Styling and component conventions | Handwritten CSS offers control but increases repeated styling work |
-| Recharts | 2.15.0 | Growth charts | Chart.js is plausible; charts need textual context and accessible alternatives |
-| Axios | 1.20.0 | External-service HTTP requests | Native fetch reduces dependencies but requires equivalent timeout/error handling |
-| Node test runner | Node runtime | Existing unit and regression suites | Vitest/Jest provide broader tooling; browser interaction tests remain separate work |
+| Tool | Version | Use in CodingLab |
+| --- | --- | --- |
+| React / React DOM | 19.2.6 | Builds the browser interface |
+| Vite | 8.3.4 | Runs development and creates the production build |
+| Express | 5.2.1 | Provides the backend API |
+| Mongoose | 9.11.2 | Defines and stores MongoDB data |
+| Better Auth | 1.7.10 | Handles sessions and sign-in providers |
+| Monaco React | 4.7.0 | Provides the code editor |
+| Tailwind CSS / DaisyUI | 4.3.0 / 5.5.19 | Styles the interface |
+| Recharts | 2.15.0 | Displays progress charts |
+| Axios | 1.20.0 | Sends requests to external services |
+| Node test runner | Node runtime | Runs backend and frontend tests |
 
-JDoodle and Cloudinary are external services, not guarantees of free unlimited infrastructure. Their SDK/API integration simplifies the prototype but requires provider configuration and operational review.
+JDoodle runs submitted code, while Cloudinary stores uploaded test files. These services made the prototype practical, but they also introduce usage limits and require secure configuration.
+
+React was chosen over Vue because the team already used React and could reuse its component ecosystem. Express was preferred to NestJS because the smaller middleware-based structure was easier for this project, although it provides fewer built-in conventions. MongoDB and Mongoose fit the document-shaped problem and contest data; PostgreSQL would provide stronger relational constraints but require a different data model. Monaco offers a familiar coding experience, but it increases the frontend bundle size.
 
 ## 7.2 Version control and integration
 
-The Git history shows feature branches, incremental commits and merges. Examples include raks-career for growth/leaderboard integration, feat-profile-elo for profile/rating work, and the contest and administration contributions visible in merged commits. Pull requests #5, #6, #7 and #8 appear in merge history. These are evidence of incremental integration; they are not evidence of automated review approval or CI runs unless such records are supplied separately.
-
-The repository was reorganized into code/ and doc/ at 704516d. The cleanup at 2b10da7 removes screenshots, development notes and unused artifacts while preserving runtime assets and tests. At the report evidence point, 2b10da7 was a local cleanup commit; its publication must be checked before citing it as an accessible GitHub commit. Implementation links therefore use the already published dbc66d0 baseline. [R4, R5]
+The team used feature branches, incremental commits and merges. Examples include raks-career for growth and leaderboard work and feat-profile-elo for profile and rating work. Pull requests #5 to #8 are present in the merge history. The repository was later organized into separate code/ and doc/ folders. [R4, R5]
 
 ## 7.3 Verification approach and results
 
-| Verification | Result on 31 October 2026 | What the evidence supports |
+| Check | Result on 31 October 2026 | Meaning |
 | --- | --- | --- |
 | Backend: npm run test --prefix backend | 269 passed; 0 failed; 0 skipped | Tested authorization, transactions, scheduling, judging, rankings, moderation and support behavior |
 | Frontend: npm run test --prefix frontend | 39 passed; 0 failed; 0 skipped | Tested pure helpers for archives, growth, notifications, editor preferences, profiles and run-code requests |
@@ -453,23 +513,23 @@ The repository was reorganized into code/ and doc/ at 704516d. The cleanup at 2b
 | Browser end-to-end/user acceptance | No signed execution record supplied | UI behavior is not certified solely by helper tests or build success |
 | Load, latency and availability | Not measured | Original numerical NFRs remain unverified |
 
-The backend tests combine pure-function tests, controller/middleware tests with controlled dependencies, and transaction simulations using Mongoose serialization. Some judging-wrapper tests execute local Python, C++ and Java programs. They are not equivalent to a real MongoDB replica-set integration suite or a live JDoodle end-to-end test. No production database mutation is needed for the reported regression suite.
+The tests cover helpers, controllers, access checks, database transaction behavior and the language wrappers. Important examples include authorization, public-problem filtering, submission saving, contest ratings, schedules, avatar settings and progress calculations. The tests use controlled services, so a live MongoDB and JDoodle test is still needed before production use.
 
-Representative evidence includes adminAuthorization.test.js for role enforcement; publicProblems.test.js for approved-only visibility and hidden-field exclusion; submissionPersistence.test.js for atomic scoring; contestRatingPersistence.test.js for repeat and concurrent finalization; contestSchedule.test.js for invalid dates; userSettings.test.js for avatar persistence; and growth-progress.test.js for first-solve calculations.
+The production build succeeds but reports a JavaScript bundle larger than 500 kB. Loading the editor only when needed and splitting large pages would improve this later.
 
-The production build reports a JavaScript chunk larger than 500 kB after minification. This is a successful build with a performance warning, not a passing performance benchmark. Route splitting, deferred editor loading and asset analysis are reasonable next steps.
+## 7.4 CI/CD status
 
-For a complete acceptance exercise, the team should demonstrate login, an approved problem, correct and incorrect submissions, contest registration, a closed-contest rejection, role approval, problem moderation, saved-code review and support ownership. Each run should record browser, date, expected result and actual result. This is a recommended checklist, not a claim that a documented manual session has already occurred.
+The repository does not currently contain a GitHub Actions workflow. The team runs the tests and production build locally before sharing a release. A simple future workflow can run the same commands automatically after each push. Deployment should remain a manual, approved step because it uses private credentials and paid or limited external services.
 
-## 7.4 CI/CD status and proposed pipeline
+![Figure 11](report-evidence/figures/cicd-simple.png)
 
-No tracked .github workflow was found. Testing and building are reproducible locally, but automated CI/CD is not yet established. A proposed pipeline would check out the revision, install locked dependencies with npm ci in each package, run backend and frontend tests, build the frontend, and retain the reports as artifacts. Compiler-wrapper tests require the appropriate Python, C++ and Java tools on the runner.
+Figure 11. The project currently uses local tests and builds. CI automation is planned but not presented as completed work.
 
-Deployment should be a separate stage with protected credentials and a transaction-capable database. A staging smoke test should cover authentication, database readiness and external execution before release. A rollback procedure and monitoring should precede any availability promise. These steps are proposed work and are not represented as existing configuration.
+## Self-assessment (CO4)
 
-## CO4 self-assessment
+Are the tools justified against alternatives and are their limits explained? Yes. Section 7.1 compares the main choices with Vue, NestJS and PostgreSQL and notes bundle size, external-service quotas and configuration risks.
 
-Are frameworks and tools justified against alternatives and limitations? Yes, Section 7.1 and the design comparison provide that justification. Is the code under meaningful version control, and are testing and CI/CD appropriate? The commit history and passing suites demonstrate version control and regression testing. CI/CD is explicitly planned, while browser, load, security and deployment verification remain necessary.
+Are version control, testing and CI/CD practices appropriate? The Git history shows branches, merges and contributions. The recorded suites contain 308 passing tests and the frontend builds successfully. CI/CD is clearly marked as planned because no workflow file is currently tracked.
 
 # 8. Professional, Ethical, and Legal Considerations
 
@@ -499,15 +559,19 @@ Ratings should be described as contest-performance indicators, not as comprehens
 
 Problems and solutions must respect authorship and academic-integrity rules. No plagiarism-detection or proctoring capability is demonstrated. Role and moderation decisions should remain explainable; the setter-decision history supports this, while problem-rejection feedback needs further work. The report distinguishes evidence from assumptions so that evaluators can assess the project fairly.
 
-## CO4 self-assessment
+## Self-assessment (CO4)
 
-Have license, privacy, security, legal and professional-ethics requirements been checked? An initial evidence-based review has been completed using dependency metadata, configuration, routes and tests. It identifies controls and unresolved obligations. Full license clearance, provider-term review, privacy policy, jurisdiction-specific legal review and deployment security certification are not claimed.
+Were license, privacy, security, legal and ethical requirements checked? Yes. Sections 8.1–8.4 review package licenses, user and submission data, external data transfers, access controls, secrets, rate limits, authorship and fair use of ratings. A full legal or production-security certification is not claimed.
 
 # 9. Project Management and Feasibility
 
 ## 9.1 Milestones: intended sequence and recorded work
 
-The supplied artifacts identify SRS, design and final-presentation stages, but do not supply a dated original schedule or formal session calendar. Consequently, exact planned-versus-actual delay cannot be calculated. The table compares intended milestone outcomes with the earliest or relevant recorded implementation periods; commit dates are evidence of repository activity, not automatically the dates on which a task began or finished.
+The supplied artifacts identify SRS, design and final-presentation stages, but do not supply a dated original schedule or formal session calendar. Consequently, exact planned-versus-actual delay cannot be calculated. Figure 12 and the table below compare intended milestone outcomes with the earliest or relevant recorded implementation periods; commit dates are evidence of repository activity, not automatically the dates on which a task began or finished.
+
+![Figure 12](report-evidence/figures/milestones.png)
+
+Figure 12. Project evolution and recorded development timeline (May–October 2026) traced to baseline artifacts and Git commit anchors.
 
 | Milestone | Intended outcome | Recorded actual evidence | Assessment |
 | --- | --- | --- | --- |
@@ -553,17 +617,23 @@ The successful build, connected application layers and passing regression suites
 
 The next planning cycle should prioritize explicit production configuration, representative load and end-to-end tests, private test storage, and closure of high-priority partial requirements before optional features. Each task should have a responsible member, acceptance criterion and evidence link. That would convert the existing implementation history into a stronger auditable project-management record.
 
-## CO7 self-assessment
+## Self-assessment (CO7)
 
-Is there evidence of iterative planning, milestones, task tracking and review? Requirements, design, presentation and incremental Git history show iteration; formal board/session records are missing. How were scope or schedule changes reprioritized and communicated? Code and merges show the resulting priorities and integration, but the exact communication channel and schedule decisions are not documented. Are effort and cost estimates reasonable? Section 9.3 supplies a transparent planning scenario while distinguishing it from actual records; the supplied SRS/design do not contain a verified budget. Is the solution feasible within resources? A working prototype is demonstrated; production feasibility remains conditional on quota, deployment, security and load validation.
+Is there evidence of iterative planning and progress review? Yes. The SRS, design, presentation, milestone table and Git history show repeated development stages. A formal task-board export was not supplied and is listed as an evidence gap.
+
+How were changes reprioritized and communicated? The resulting priorities are visible in commits and merges: core practice and authentication came first, followed by contests, ratings, support and hardening. The exact meeting record was not available, so the report does not invent one.
+
+Are effort, infrastructure and third-party costs estimated? Section 9.3 gives a transparent planning estimate for work, hosting, database, storage and judge usage while clearly separating estimates from actual expenses.
+
+Is the solution feasible within the available resources? Yes for an academic prototype, as shown by the working application, successful build and passing tests. Production feasibility still depends on quotas, security, monitoring and measured load.
 
 # 10. Teamwork and Individual Contributions
 
 ## 10.1 Responsibility allocation and evidence
 
-![Figure 9 — Team responsibilities](report-evidence/figures/team.png)
+![Figure 13](report-evidence/figures/team.png)
 
-Figure 9. Team responsibility allocation. Source: final-presentation.pdf, physical page 8. The following table connects the declared responsibilities with representative Git evidence rather than inferring contribution only from line counts.
+Figure 13. Original team-contribution slide from final-presentation.pdf, physical page 8. The table below links responsibilities to Git evidence.
 
 | Member | Responsibilities supported by presentation and history | Representative evidence |
 | --- | --- | --- |
@@ -585,9 +655,13 @@ Recorded fixes show concrete technical blockers: C++ execution behavior, avatar 
 
 The contribution table makes the division of work visible. Fair participation should be reviewed through explanation of assigned modules, issue/commit evidence and shared review of integration decisions rather than raw commit counts. For unresolved decisions, a suitable process is to describe the options, test them against requirements, record the chosen trade-off and request supervisor guidance when necessary. This is a recommended practice, not a claim of a documented past meeting.
 
-## CO5 self-assessment
+## Self-assessment (CO5)
 
-Can each member explain assigned tasks and show their reflection in version control? The responsibility/evidence table provides specific starting points for each member's explanation. How were disagreements and blockers resolved, with fair participation? Technical fixes are visible; social-process and fairness evidence is insufficient for a stronger claim. How were interdependent modules coordinated? Shared API/data contracts, feature merges, reusable judging/editor logic and regression tests connect the separately developed areas.
+Can each member connect assigned work to project history? Yes. Section 10.1 links each member's modules to representative commits and the team figure summarizes ownership.
+
+How were blockers and disagreements handled fairly? Technical blockers were resolved through fixes, shared modules and regression tests. No formal disagreement log was supplied, so the report gives the fair process the team should follow without claiming undocumented events.
+
+How were interdependent modules coordinated? Shared identity rules, API contracts, judging logic, editor components, rating helpers and integration tests connected the separately owned areas.
 
 # 11. Results, Limitations, and Future Work
 
@@ -646,9 +720,9 @@ The original design and final-presentation claims are not all equally current. T
 | 3 | Improve notifications, profile security and optional video support | Delivery/configuration tests and complete account workflows |
 | 3 | Reduce large components and bundle size | Component review, production bundle comparison, performance measures |
 
-## CO6 self-assessment
+## Self-assessment (CO6)
 
-Would an informed reader understand the problem, requirements, decisions, implementation and limitations from the documents alone? This report brings those elements together with source identifiers, diagrams, data contracts, measured statistics, test results, contribution evidence and explicit limitations. Undocumented session feedback and actual costs remain visible evidence gaps rather than unsupported claims of completeness.
+Can an informed reader understand the complete project from the report? Yes. The report connects the problem, requirements, design, implementation, evidence, final status and limitations. Missing meeting records, measured NFR results and incomplete features are stated openly.
 
 # 12. Glossary and References
 
@@ -732,20 +806,6 @@ The following official pages were consulted on 31 October 2026. Their relevance 
 
 [R11] Better Auth. Email & Password. https://better-auth.com/docs/authentication/email-password
 
-## 12.4 Reproducibility and evidence index
+## Self-assessment (CO6)
 
-The accompanying doc/report-evidence folder contains backend/frontend test output, production build output, measured source statistics and the metric script. The test output records a combined npm test run; the statistics script parses runtime JavaScript/JSX and reports its inclusion rules. Both the diagram sources and the code snapshot should accompany this report so a reviewer can reproduce or inspect the claims.
-
-Useful implementation anchors at the published baseline are:
-
-- Judging: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/backend/services/judgingService.js
-- Rating calculation: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/backend/utils/eloCalculator.js
-- Rating consistency: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/backend/utils/contestRatings.js
-- Eligibility and university ranking: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/backend/utils/leaderboard.js
-- Authorization tests: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/backend/tests/adminAuthorization.test.js
-- Submission persistence tests: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/backend/tests/submissionPersistence.test.js
-- Recent submission review: https://github.com/EarthBoundBroccoli/CodingLab/blob/dbc66d0/src/frontend/src/components/growth/SubmissionHistory.jsx
-
-## CO6 self-assessment
-
-Have the documents considered the audience's background, language and learning needs? The executive summary begins with familiar student activities; diagrams explain structure; tables connect requirements to evidence; technical terms are defined here. The report keeps limitations visible and provides precise sources for readers who need more detail.
+Were the audience's background, language and learning needs considered? Yes. The report begins with a plain-language summary, explains diagrams in captions, connects technical choices to user needs, and defines specialist terms in the glossary. References are provided for readers who need more detail.

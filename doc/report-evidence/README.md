@@ -6,7 +6,7 @@ Evidence for the CodingLab report, prepared on 31 October 2026 against local sou
 - `build.txt`: captured production frontend build; includes the large-chunk warning.
 - `metrics.json`: measured code statistics and counting scope.
 - `measure-source.cjs`: reproducible measurement using the project's installed Babel parser. From the repository root, run `node doc/report-evidence/measure-source.cjs` after installing frontend dependencies. Tests, seed/import scripts, CSS, configuration and dependencies are excluded from the runtime-source count.
-- `figures/`: figures extracted from the supplied design and final-presentation PDFs. Captions in the report identify original page numbers and implementation differences.
+- `figures/`: 13 high-resolution figures embedded in `doc/final-report.docx` and referenced by `doc/final-report-source.md` (`use-cases.png`, `architecture.png`, `context.png`, `collections.png`, `er.png`, `approval.png`, `execution.png`, `roles.png`, `contests.png`, `submission-sequence.png`, `cicd-simple.png`, `milestones.png`, `team.png`). Architecture and team figures come from `final-presentation.pdf`; the DFD, database, ER, and process-flow figures come from `design.pdf`. The remaining figures were prepared for the final report.
 
 The report is supplied as an editable DOCX and Markdown source. No LaTeX is used. To meet the course's Google Docs requirement, upload `doc/final-report.docx` to Google Drive, open it with Google Docs, convert/save it as a Google Doc, refresh the table of contents, and review figure/table pagination. Export the completed Google Doc as PDF to `doc/final-report.pdf` for classroom submission.
 

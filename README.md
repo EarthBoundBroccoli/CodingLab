@@ -9,7 +9,7 @@ CodingLab/
 |-- code/                  # Application source and Node.js workspace
 |   |-- backend/           # Express API
 |   `-- frontend/          # React/Vite client
-|-- doc/                   # Submission documents (currently empty)
+|-- doc/                   # Final reports, design documents and evidence
 `-- README.md
 ```
 
@@ -17,7 +17,8 @@ The final submission documents should use these paths:
 
 - `doc/srs.pdf`
 - `doc/design.pdf`
-- `doc/final-presentation.*`
+- `doc/final-presentation.pdf`
+- `doc/final-report.docx`
 - `doc/final-report.pdf`
 
 ## Prerequisites
